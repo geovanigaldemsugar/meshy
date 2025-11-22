@@ -20,9 +20,54 @@ class Vector:
         self.y += dy
         self.z += dz
 
+    def bounce(self, dx:float=0.0, dy:float=0.0, dz:float=0.0, min=-0.5, max=0.5):
+        """Move an Object Axes between min and max by given deltas (dx, dy, dz)"""
+        if not hasattr(self, "up"):
+            self.up = [True, True, True]
+            self.d_total = [0, 0, 0]
+
+        if self.up[0]:
+            if self.d_total[0] < max:
+                self.d_total[0] += dx
+                self.move(dx=dx)
+        else:
+            if self.d_total[0] > min:
+                self.d_total[0] -= dx
+                self.move(dx=-dx)
+
+        if self.up[1]:
+            if self.d_total[1] < max:
+                self.d_total[1] += dy
+                self.move(dy=dy)
+        else:
+            if self.d_total[1] > min:
+                self.d_total[1] -= dy
+                self.move(dy=-dy)
+            
+        if self.up[2]:
+            if self.d_total[2] < max:
+                self.d_total[2] += dz
+                self.move(dz=dz)
+        else:
+            if self.d_total[2] > min:
+                self.d_total[2] -= dz
+                self.move(dz=-dz)
+ 
+        for total, i in zip(self.d_total, range(3)):
+            if total >= max:
+                self.up[i] = False
+            if total <= min:
+                self.up[i] = True
+
     def vector(self):
+        """return numpy array"""
         return np.array([self.x, self.y, self.z], dtype=np.float32)
     
+    def __clamp(self, value,  min_l, max_l):
+        """ clamp value withing specified range"""
+        return max(min_l, min(value, max_l))
+
+
 
 class Scale(Vector):
     """Defines the size of an object relative to the 3D space"""
@@ -45,6 +90,7 @@ class Position(Vector):
     """Defines the position of an object relative to the 3D space"""
     def __init__(self, x:float=0.0, y:float=0.0, z:float=0.0):
         super().__init__(x, y, z)
+
     
     
 class Transform:
@@ -133,9 +179,6 @@ class OrbitalTransfrom:
         """strip  a vector of it magnitude and leave only direction"""
         vector = vector / np.linalg.norm(vector) 
         return vector
-
-
-
 
 
 

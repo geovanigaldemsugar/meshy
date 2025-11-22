@@ -58,6 +58,7 @@ class Renderer:
 
             #rotate cube
             # self.obj.transform.rotation.move(dz=1)
+            # self.obj.transform.position.bounce(dy=0.01)
             self.__update_model()
 
             # draw the shape
@@ -164,5 +165,5 @@ class Renderer:
 
 
 if __name__ == "__main__":
-    renderer = Renderer(Pyramid)
+    renderer = Renderer(Cube)
     renderer.renderLoop()
