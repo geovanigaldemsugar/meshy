@@ -12,7 +12,6 @@ class Renderer:
     def __init__(self, obj:Mesh, width:int=800, height:int=700):
         self.scr_width, self.scr_height = width, height
         self.render_distance = 20
-        self.fov = 45
         
         # initialize pygame and create window
         pg.init()
@@ -26,7 +25,7 @@ class Renderer:
         glUseProgram(self.shader)
 
         # initailize Camera and create view matrix
-        self.camera = Camera()
+        self.Camera = Camera()
         self.viewMatrixLocation = glGetUniformLocation(self.shader, 'view') # get view mat4 location in gpu mem
         self.__update_camera()
 
@@ -52,7 +51,7 @@ class Renderer:
                 self.__camera_ctl(event)
                 self.__adjust_ratio(event)
                 self.__object_ctl(event)
-                self.__mouse_picking(event)
+                self.__draw_ray(event)
             
             # refresh screen
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -116,7 +115,7 @@ class Renderer:
 
     def __camera_ctl(self, event):
         if event.type == pg.MOUSEWHEEL:
-            self.camera.transform.zoom(event.y, zoom_speed=0.2)
+            self.Camera.transform.zoom(event.y, zoom_speed=0.2)
             self.__update_camera()
           
         if event.type == pg.MOUSEMOTION:
@@ -128,26 +127,26 @@ class Renderer:
 
             if middle_mouse and not shiftKey:
                 # move camera with blender style orbit
-                self.camera.transform.move(0, mouse_y, mouse_x, sensitivity = 0.2)
+                self.Camera.transform.move(0, mouse_y, mouse_x, sensitivity = 0.2)
                 self.__update_camera()
            
             if  middle_mouse and shiftKey:
                 # move view/target by panning
-                self.camera.transform.pan_camera(mouse_x, mouse_y, pan_speed=0.002)
+                self.Camera.transform.pan_camera(mouse_x, mouse_y, pan_speed=0.002)
                 self.__update_camera()
 
                 
     def __update_camera(self):
         # create view matrix with updated camera target
-        self.view = pyrr.matrix44.create_look_at(eye= self.camera.transform.position.vector(), 
-        target=self.camera.transform.target.vector(), up=self.camera.transform.world_up.vector(), dtype=np.float32)
+        self.view = pyrr.matrix44.create_look_at(eye= self.Camera.transform.position.vector(), 
+        target=self.Camera.transform.target.vector(), up=self.Camera.transform.world_up.vector(), dtype=np.float32)
         #update mat4 in gpu mem
         glUniformMatrix4fv(self.viewMatrixLocation, 1, GL_FALSE, self.view)
 
     def __update_projection(self):
         # create projection matrix and bind data to gpu memory
         self.projection = pyrr.matrix44.create_perspective_projection_matrix(
-        fovy=self.fov, aspect=self.scr_width/self.scr_height, 
+        fovy=45, aspect=self.scr_width/self.scr_height, 
         near=0.1, far=self.render_distance, dtype=np.float32)
         
         # send the data to gpu variable
@@ -162,86 +161,72 @@ class Renderer:
         
         # update model matrix in gpu memory
         glUniformMatrix4fv(self.modelMatrixLocation, 1, GL_FALSE, self.model)
-    def __mouse_picking(self, event):
-        if not event.type == pg.MOUSEMOTION:
-            return None
-        
-        mouse_x, mouse_y = event.pos
 
-        cam_pos = self.camera.transform.position.vector()
-        ray_dir = self._gen_ray(mouse_x, mouse_y)
-        sphere_r, sphere_center = self._gen_bounding_sphere(self.obj)
-        mouse_hit = self._ray_sphere_intersect(cam_pos, ray_dir, sphere_center, sphere_r)
-        
-        print(mouse_hit)
-    
-    def _gen_ray(self, mouse_x:float, mouse_y:float):
-        """generates a ray direction towards target  from screen given (mouse_x, mouse_y)"""
-        # convert viewport(width x height in pixel) to normalized device coordinates
-        x, y = 2 * (mouse_x/self.scr_width) -1, 1 - 2 * (mouse_y/self.scr_height)
-        # calculate ray x, y in view/cam space 
-        # Tan(fov/2) defines y component of the ray that streches off course due to perspective and hit z =-1
-        # if 1 * Tan(fov/2) = full height of screen
-        # aspect = is the relation bewteen x and y a = x/y,  a = width/height, eg a =1.77 so x is 1.77 * greater than y
-        
-        #calculate ray direction in camera space (where where will land in camera/view space after applying perspective)
-        stretch = math.tan(math.radians(self.fov)/2)
-        aspect_ratio =  self.scr_width/self.scr_height
-        x_view = x * aspect_ratio * stretch
-        y_view = y * stretch
-        z_view = -1 # camera looks towards -z in local space
-        ray_dir_view = np.array([x_view, y_view, z_view], dtype=np.float32)
-        ray_dir_view = self.__normalize_vec(ray_dir_view) #because of stretching the once nornmialized coordinated become unnormalized
-        
-        cam_pos = self.camera.transform.position.vector()
-        target = self.camera.transform.target.vector()
-        world_up = self.camera.transform.world_up.vector()
+    def __draw_ray(self, event):
+        if event.type == pg.MOUSEMOTION:
+            mouse_x, mouse_y = event.pos
 
-        #build camera basis vectors in world space
-        #camera is look at ray_dir, = T - C
-        forward = self.__normalize_vec(target - cam_pos) 
-        right = self.__normalize_vec(np.cross(forward, world_up))
-        up = self.__normalize_vec(np.cross(right, forward))
+            # 1. Screen space -> Normalized Device Coordinates (NDC)
+            x = 2.0 * (mouse_x / self.scr_width) - 1.0
+            y = 1.0 - 2.0 * (mouse_y / self.scr_height)
 
-        # map camera space ray (ray_view) to world_space
-        #we account for camera oreintation/rotation in space since it changes
-        #ray no longer shoot to directly z = -1, its the same as were creating a look at ray
-        #where R(t) = O + Dt, where D = (T - C)<basis vector-x> * ray_view<x> + (basis vector-y) * ray_view-y...
-        ray_dir_world = (right * ray_dir_view[0] + up * ray_dir_view[1] + forward * ray_dir_view[2])
-        ray_dir_world = self.__normalize_vec(ray_dir_world)
+            # 2. Compute ray in camera space using FOV and aspect ratio
+            fovy_deg = 45.0  # keep in sync with __update_projection
+            fovy_rad = math.radians(fovy_deg)
+            tan_fovy = math.tan(fovy_rad / 2.0)
+            aspect = self.scr_width / self.scr_height
 
-        return ray_dir_world
-    
-    def _gen_bounding_sphere(self, obj) -> tuple[float, np.ndarray]:
-        """Generates a bounding sphere for a object, returns (radius, sphere_center) """
-        # prepare sphere center and radius in world space
-        # Approximate a radius based on scale (diagonal of scaled box / 2)
+            x_cam = x * aspect * tan_fovy
+            y_cam = y * tan_fovy
+            z_cam = -1.0  # camera looks down -Z in its local space
 
-        def rm_rgb(vertices):
-            xyz_only = []
-            cnt = 0
-            for i in range(len(vertices)):
-                for v in vertices[cnt:cnt + 3]:
-                    xyz_only.append(v)
-                cnt += 6
-            return xyz_only
+            ray_dir_cam = np.array([x_cam, y_cam, z_cam], dtype=np.float32)
+            ray_dir_cam = self.__normalize_vec(ray_dir_cam)
 
-        sphere_C = obj.transform.position.vector()
-        scale_vec = obj.transform.scale.vector()
-        xyz_only = rm_rgb(obj.vertices)
-        max_point = np.max(xyz_only)
-        sphere_r = math.sqrt(
-            (max_point * scale_vec[0]) ** 2 + (max_point*scale_vec[1]) ** 2 + (max_point * scale_vec[2]) ** 2
-        )  * 0.7
-        print(sphere_r)
-        return sphere_r, sphere_C
+            # 3. Build camera basis in world space
+            cam_pos = self.Camera.transform.position.vector()
+            target = self.Camera.transform.target.vector()
+            world_up = self.Camera.transform.world_up.vector()
 
-    
-    def _ray_sphere_intersect(self, ray_O: np.ndarray, ray_D: np.ndarray, sphere_C: np.ndarray, sphere_r:float):
+            forward = self.__normalize_vec(target - cam_pos)
+            right = self.__normalize_vec(np.cross(forward, world_up))
+            up = self.__normalize_vec(np.cross(right, forward))
+
+            # Map camera-space ray to world space
+            # (-z_cam) because camera looks along -Z in its local space
+            ray_dir_world = (
+                right * ray_dir_cam[0]
+                + up * ray_dir_cam[1]
+                + forward * (-ray_dir_cam[2])
+            )
+            ray_dir_world = self.__normalize_vec(ray_dir_world)
+
+            ray_origin_world = cam_pos
+
+            # 4. Sphere center & radius in world space
+            sphere_center_world = self.obj.transform.position.vector()
+
+            # Approximate a radius based on scale (diagonal of scaled box / 2)
+            scale_vec = self.obj.transform.scale.vector()
+            sphere_radius_world = math.sqrt(
+                scale_vec[0] ** 2 + scale_vec[1] ** 2 + scale_vec[2] ** 2
+            ) / 2.0
+
+            hit = self.__ray_sphere_intersect(
+                ray_origin_world,
+                ray_dir_world,
+                sphere_center_world,
+                sphere_radius_world,
+            )
+
+            print("mouse_on_object:", hit)
+           
+    def __ray_sphere_intersect(self, ray_O: np.ndarray, ray_D: np.ndarray, sphere_C: np.ndarray, sphere_r:float):
         """O - ray origin, D - ray direction, C - sphere center, r - sphere radius"""
         # t = - b +- sqrt(b**2 - c)    decriminant = b**2 - c
         # b = D dot (O - C)
         # c = (O - C) dot (O - C) - r**2
+
 
         b = ray_D @ (ray_O - sphere_C)
         c = (ray_O - sphere_C) @ (ray_O - sphere_C) - sphere_r**2
@@ -249,9 +234,10 @@ class Renderer:
         
         if decriminant < 0:
             return False
-        if decriminant >= 0:
+        if decriminant > 0:
             return True
-     
+        if decriminant == 0:
+            return True
     
      
     def __normalize_vec(self, vector:np.ndarray):

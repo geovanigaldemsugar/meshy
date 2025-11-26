@@ -130,12 +130,15 @@ class OrbitalTransfrom:
         self.yaw += dyaw * sensitivity
 
         # Set limits for pitch (0-90°) and r(distance), and warp yaw(360 -> 0)
-        self.pitch = self.__clamp(self.pitch, 0, 90)
+        self.pitch = self.__clamp(self.pitch, 1, 89)
         self.yaw = self.__warp_angle(self.yaw)
-        self.r = self.__clamp(self.r, 0, 20)
+        self.r = self.__clamp(self.r, 0.1, 20)
 
         # recalculate orbit
         self.__update_orbit()
+        # print(self.pitch, ' ', self.yaw)
+        # print(self.position.vector(), ' ', self.target.vector())
+        
 
     def pan_camera(self, dx=0 ,dy=0, pan_speed=0.005):
         """Move Camera Target by given (dx, dy), this moves the world up or down, left or right"""
@@ -146,7 +149,16 @@ class OrbitalTransfrom:
         translate = (-right * dx + up * dy) * pan_speed * self.r
 
         self.target.move(translate[0], translate[1])
+        self.target.move(translate[0], translate[1])
         self.__update_orbit()
+
+        # dx *= pan_speed
+        # dy *= pan_speed
+
+        # self.target.move(dx, dy)
+        # self.position.move(dx, dy)
+
+        # self.__update_orbit()
 
     def zoom(self, dr, zoom_speed):
         """Move camera closer or farther away by given (dr)"""
@@ -177,7 +189,10 @@ class OrbitalTransfrom:
     
     def __normalize_vec(self, vector):
         """strip  a vector of it magnitude and leave only direction"""
-        vector = vector / np.linalg.norm(vector) 
+        vec_magnitude =  np.linalg.norm(vector) 
+        if vec_magnitude < 1e-6:
+            return np.array([0, 0, 0], dtype=np.float32)
+        vector = vector / vec_magnitude
         return vector
 
 
