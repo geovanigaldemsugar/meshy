@@ -13,6 +13,8 @@ class Mesh:
         self.indices_count = len(self.indices)
         self.mode = mode
         self.line = line
+        self.vpos = self.__rm_rgb(self.vertices)
+
 
         #set line thickness if drawing lines
         glLineWidth(self.line)
@@ -41,6 +43,30 @@ class Mesh:
         glBindVertexArray(0)
         glBindBuffer(GL_ARRAY_BUFFER, 0)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
+   
+    def gen_bounding_sphere(self) -> tuple[float, np.ndarray]:
+        """Generates a bounding sphere for object, returns (radius, sphere_center) """
+        # prepare sphere center and radius in world space
+
+        # Calculate xmax, ymax, zmax for axis aligned bounding box sphere
+        max_xyz =  self.vpos.max(axis=0)
+        xmax, ymax, zmax = max_xyz[0], max_xyz[1], max_xyz[2]
+
+        sphere_C =self.transform.position.vector()
+        scale_vec = self.transform.scale.vector()
+        sphere_r = np.sqrt(
+            (xmax * scale_vec[0]) ** 2 + (ymax * scale_vec[1]) ** 2 + (zmax * scale_vec[2]) ** 2
+        )
+        print(sphere_r)
+        return sphere_r, sphere_C
+    
+    def __rm_rgb(self, vertices):
+        xyz_only = []
+        for i in range(0, len(vertices), 2):
+            xyz_only.append(vertices[i])
+        return np.array(xyz_only)
+
+                
 
     def draw(self):
         """ Draw Mesh using glDrawElements """
@@ -60,11 +86,11 @@ class Square(Mesh):
     def __init__(self):
         # square has 4 unique vertices
         vertices = (
-            # Position             Color
-            -0.5, -0.5,  0.5,   1.0, 0.0, 0.0, #0 - Front-Bottom-Left
-             0.5, -0.5,  0.5,   0.0, 1.0, 0.0, #1 - Front-Bottom-Right
-             0.5,  0.5,  0.5,   0.0, 0.0, 1.0, #2 - Front-Top-Right
-            -0.5,  0.5,  0.5,   1.0, 1.0, 0.0, #3 - Front-Top-Left
+            # Position (x,y,z)    Color (r,g,b)
+            (-0.5, -0.5,  0.5), (1.0, 0.0, 0.0), #0 - Front-Bottom-Left
+            ( 0.5, -0.5,  0.5), (0.0, 1.0, 0.0), #1 - Front-Bottom-Right
+            ( 0.5,  0.5,  0.5), (0.0, 0.0, 1.0), #2 - Front-Top-Right
+            (-0.5,  0.5,  0.5), (1.0, 1.0, 0.0), #3 - Front-Top-Left
             
         )
 
@@ -88,15 +114,15 @@ class Cube(Mesh):
     def __init__(self):
         # Cube has 8 unique vertices 
         vertices = (
-            # Position             Color
-            -0.5, -0.5,  0.5,   1.0, 0.0, 0.0, #0 - Front-Bottom-Left
-             0.5, -0.5,  0.5,   0.0, 1.0, 0.0, #1 - Front-Bottom-Right
-             0.5,  0.5,  0.5,   0.0, 0.0, 1.0, #2 - Front-Top-Right
-            -0.5,  0.5,  0.5,   1.0, 1.0, 0.0, #3 - Front-Top-Left
-            -0.5, -0.5, -0.5,   1.0, 0.0, 0.0, #4 - Back-Bottom-Left
-             0.5, -0.5, -0.5,   0.0, 1.0, 0.0, #5 - Back-Bottom-Right
-             0.5,  0.5, -0.5,   0.0, 0.0, 1.0, #6 - Back-Top-Right
-            -0.5,  0.5, -0.5,   1.0, 1.0, 0.0, #7 - Back-Top-Left
+            # Position (x,y,z)    Color (r,g,b)
+            (-0.5, -0.5,  0.5), (1.0, 0.0, 0.0), #0 - Front-Bottom-Left
+            ( 0.5, -0.5,  0.5), (0.0, 1.0, 0.0), #1 - Front-Bottom-Right
+            ( 0.5,  0.5,  0.5), (0.0, 0.0, 1.0), #2 - Front-Top-Right
+            (-0.5,  0.5,  0.5), (1.0, 1.0, 0.0), #3 - Front-Top-Left
+            (-0.5, -0.5, -0.5), (1.0, 0.0, 0.0), #4 - Back-Bottom-Left
+            ( 0.5, -0.5, -0.5), (0.0, 1.0, 0.0), #5 - Back-Bottom-Right
+            ( 0.5,  0.5, -0.5), (0.0, 0.0, 1.0), #6 - Back-Top-Right
+            (-0.5,  0.5, -0.5), (1.0, 1.0, 0.0), #7 - Back-Top-Left
         )
 
         # cube has 6 faces, 6 * 2(traingle per face) = 12 traingles, each traingle has 3 vertex  12 *3 = 36 indicies
@@ -142,11 +168,11 @@ class Pyramid(Mesh):
     def __init__(self):
         vertices = (
               # Position              Color
-            -0.5, -0.5,  0.5,    1.0, 0.0, 0.0,  #0 - right-bottom-front
-             0.5, -0.5,  0.5,    0.0, 1.0, 0.0,  #1 - left-bottom-front
-             0,    0.5,    0,    0.0, 0.0, 1.0,  #2 - apex
-            -0.5, -0.5, -0.5,    1.0, 0.0, 0.0,  #3 - left-bottom-back
-             0.5, -0.5, -0.5,    0.0, 1.0, 0.0,  #4 - right-bottom-back
+             (-0.5, -0.5,  0.5),   (1.0, 0.0, 0.0),  #0 - right-bottom-front
+             (0.5, -0.5,  0.5),    (0.0, 1.0, 0.0),  #1 - left-bottom-front
+             (0,    0.5,    0),    (0.0, 0.0, 1.0),  #2 - apex
+             (-0.5, -0.5, -0.5),   (1.0, 0.0, 0.0),  #3 - left-bottom-back
+             (0.5, -0.5, -0.5),    (0.0, 1.0, 0.0)  #4 - right-bottom-back
             )
 
         indices = (

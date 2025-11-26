@@ -8,7 +8,7 @@ class Vector:
         self.y = y
         self.z = z
 
-    def update(self, x:float, y:float, z:float):
+    def update(self, x:float=0.0, y:float=0.0, z:float=0.0):
         """ Reset Vector to new  (x, y, z)"""
         self.x = x
         self.y = y

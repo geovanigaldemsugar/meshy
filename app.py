@@ -63,6 +63,7 @@ class Renderer:
             #rotate cube
             # self.obj.transform.rotation.move(dz=1)
             # self.obj.transform.position.bounce(dy=0.01)
+            # self.obj.transform.scale.bounce(dx=0.001)
             self.__update_model()
 
             # draw the shape
@@ -170,7 +171,7 @@ class Renderer:
 
         cam_pos = self.camera.transform.position.vector()
         ray_dir = self._gen_ray(mouse_x, mouse_y)
-        sphere_r, sphere_center = self._gen_bounding_sphere(self.obj)
+        sphere_r, sphere_center = self.obj.gen_bounding_sphere()
         mouse_hit = self._ray_sphere_intersect(cam_pos, ray_dir, sphere_center, sphere_r)
         
         print(mouse_hit)
@@ -212,30 +213,7 @@ class Renderer:
 
         return ray_dir_world
     
-    def _gen_bounding_sphere(self, obj) -> tuple[float, np.ndarray]:
-        """Generates a bounding sphere for a object, returns (radius, sphere_center) """
-        # prepare sphere center and radius in world space
-        # Approximate a radius based on scale (diagonal of scaled box / 2)
-
-        def rm_rgb(vertices):
-            xyz_only = []
-            cnt = 0
-            for i in range(len(vertices)):
-                for v in vertices[cnt:cnt + 3]:
-                    xyz_only.append(v)
-                cnt += 6
-            return xyz_only
-
-        sphere_C = obj.transform.position.vector()
-        scale_vec = obj.transform.scale.vector()
-        xyz_only = rm_rgb(obj.vertices)
-        max_point = np.max(xyz_only)
-        sphere_r = math.sqrt(
-            (max_point * scale_vec[0]) ** 2 + (max_point*scale_vec[1]) ** 2 + (max_point * scale_vec[2]) ** 2
-        )  * 0.7
-        print(sphere_r)
-        return sphere_r, sphere_C
-
+    
     
     def _ray_sphere_intersect(self, ray_O: np.ndarray, ray_D: np.ndarray, sphere_C: np.ndarray, sphere_r:float):
         """O - ray origin, D - ray direction, C - sphere center, r - sphere radius"""
