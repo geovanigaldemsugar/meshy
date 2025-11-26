@@ -3,6 +3,12 @@ from OpenGL.constant import IntConstant
 import numpy as np
 from vector import Transform, OrbitalTransfrom
 
+
+
+
+
+        
+
 class Mesh:
     """ Base class for Creating Object Meshes using Index Buffer Object(EBO) """
 
@@ -14,6 +20,7 @@ class Mesh:
         self.mode = mode
         self.line = line
         self.vpos = self.__rm_rgb(self.vertices)
+        self.id = None
 
 
         #set line thickness if drawing lines
@@ -65,7 +72,6 @@ class Mesh:
         for i in range(0, len(vertices), 2):
             xyz_only.append(vertices[i])
         return np.array(xyz_only)
-
                 
 
     def draw(self):
@@ -79,7 +85,29 @@ class Mesh:
         glDeleteBuffers(1, (self.vbo,))
         glDeleteBuffers(1, (self.ebo,))
 
-        
+
+class MeshManager:
+    def __init__(self):
+        self.meshes = []
+
+        # initialize id generator
+        self.gen_id = self._id_generator()
+    
+    def add_mesh(self, *args:Mesh):
+        for arg in args:
+            arg.id = next(self.gen_id)
+            self.meshes.append(arg)
+
+    def mesh_ids(self):
+        return [mesh.id for mesh in self.meshes]
+    
+    def _id_generator(self):
+        id = 0
+        while True:
+            yield id
+            id += 1
+
+
 class Square(Mesh):
     """Square Mesh"""
 

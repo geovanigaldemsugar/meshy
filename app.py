@@ -35,12 +35,12 @@ class Renderer:
         self.__update_projection()
 
         #initialize model and create model matrix 
-        self.obj = obj
+        self.mesh_manager = MeshManager()
         self.modelMatrixLocation = glGetUniformLocation(self.shader, "model")
         
     def renderLoop(self):
         running = True
-        self.obj = self.obj()
+        self.mesh_manager.add_mesh(Cube(), Pyramid())
         self.__update_model()
 
         while running:
@@ -246,5 +246,5 @@ class Renderer:
 
 
 if __name__ == "__main__":
-    renderer = Renderer(Cube)
+    renderer = Renderer()
     renderer.renderLoop()
