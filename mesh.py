@@ -2,8 +2,8 @@ from OpenGL.GL import *
 from OpenGL.constant import IntConstant
 import numpy as np
 from vector import Transform, OrbitalTransfrom
-
-
+from app import Renderer
+from  ray import *
 
 
 
@@ -20,8 +20,12 @@ class Mesh:
         self.mode = mode
         self.line = line
         self.vpos = self.__rm_rgb(self.vertices)
-        self.id = None
 
+        # will be initialized by Mesh Manager
+        self.id = None
+        self.hit = None, None
+        self.renderer = None
+        self.ray:Ray = None
 
         #set line thickness if drawing lines
         glLineWidth(self.line)
@@ -50,6 +54,12 @@ class Mesh:
         glBindVertexArray(0)
         glBindBuffer(GL_ARRAY_BUFFER, 0)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
+
+    def draw_ray_to_mesh(self, mouse_x:float, mouse_y:float):
+        ray_dir, ray_origin = self.ray.gen_ray(mouse_x, mouse_y)
+        sphere_r, sphere_center = self.gen_bounding_sphere()
+        self.hit = self.ray.ray_sphere_intersect(ray_origin, ray_dir, sphere_center, sphere_r)
+        
    
     def gen_bounding_sphere(self) -> tuple[float, np.ndarray]:
         """Generates a bounding sphere for object, returns (radius, sphere_center) """
@@ -67,6 +77,7 @@ class Mesh:
         print(sphere_r)
         return sphere_r, sphere_C
     
+    
     def __rm_rgb(self, vertices):
         xyz_only = []
         for i in range(0, len(vertices), 2):
@@ -80,6 +91,7 @@ class Mesh:
         # Draw primitive/triangles using indices specified in the EBO
         glDrawElements(self.mode, self.indices_count, GL_UNSIGNED_INT, ctypes.c_void_p(0))
 
+
     def destroy(self):
         glDeleteVertexArrays(1, (self.vao,))
         glDeleteBuffers(1, (self.vbo,))
@@ -87,8 +99,9 @@ class Mesh:
 
 
 class MeshManager:
-    def __init__(self):
-        self.meshes = []
+    def __init__(self, renderer):
+        self.meshes:list[Mesh] = []
+        self.renderer:Renderer = renderer
 
         # initialize id generator
         self.gen_id = self._id_generator()
@@ -96,11 +109,55 @@ class MeshManager:
     def add_mesh(self, *args:Mesh):
         for arg in args:
             arg.id = next(self.gen_id)
+            arg.renderer = self.renderer
+            arg.ray = Ray(self.renderer)
             self.meshes.append(arg)
 
     def mesh_ids(self):
         return [mesh.id for mesh in self.meshes]
     
+    def destroy_meshes(self):
+        for mesh in self.meshes:
+            mesh.destroy()
+
+    def get_mesh(self, id) -> Mesh:
+        for mesh in self.meshes:
+            if id == mesh.id:
+                return mesh
+        return None
+
+    def hit_status(self):
+        dtype = ([('id', int), ('hit', bool), ('distance', 'f4')])
+        hit_stats = []
+        for mesh in self.meshes:
+            record = (mesh.id, mesh.hit[0], mesh.hit[1])
+            hit_stats.append(record)
+        return np.array(hit_stats, dtype=dtype)
+    
+    def get_hit(self):
+        """get the hit object of the mesh the mouse is currently point on returns (mesh.id, hit, distance)"""
+        hit_stats = self.hit_status()
+        # check first if mouse ray hit multiple objects
+        hit_true = hit_stats[hit_stats['hit']]
+        multiple_hits = len(hit_true)
+        if multiple_hits == 0:
+            return False, (None, None, None)
+        if multiple_hits > 0:
+            hit = self._closest_hit(hit_true)
+            hit = hit_true[0]
+            return True, hit
+        
+        hit = hit_true[0]
+        return True, hit
+        
+    def _closest_hit(self, hits):
+        """find closest mesh, that mouse picking ray hit"""
+        min_distance = np.min(hits['distance'])
+        closest = (hits['distance'] == min_distance)
+        h = hits[closest]
+        return hits[closest]
+           
+                
     def _id_generator(self):
         id = 0
         while True:
@@ -217,7 +274,7 @@ class Pyramid(Mesh):
         self.indices = np.array(indices, dtype=np.uint32)
         super().__init__(self.vertices, self.indices)
 
-        self.transform.position.update(0.0, 0.0, -3.0)
+        self.transform.position.update(-0.5, 0.0, -3.0)
         
 
 
