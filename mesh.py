@@ -138,7 +138,6 @@ class MeshManager:
         hit_stats = self.hit_status()
         # check first if mouse ray hit multiple objects
         hit_true = hit_stats[hit_stats['hit']]
-        print(hit_true)
         multiple_hits = len(hit_true)
         if multiple_hits == 0:
             return False, (None, None, None)
@@ -154,11 +153,10 @@ class MeshManager:
     def _closest_hit(self, hits):
         """find closest mesh, that mouse picking ray hit"""
         min_distance = np.min(hits['distance'])
-        print(min_distance)
         closest = (hits['distance'] == min_distance)
         h = hits[closest]
         # print('h', h)
-        return hits[closest].item()
+        return hits[closest][0].item()
            
                 
     def _id_generator(self):
