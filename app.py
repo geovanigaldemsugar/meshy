@@ -12,6 +12,8 @@ class Renderer:
         self.scr_width, self.scr_height = width, height
         self.render_distance = 20
         self.fov = 45
+        self.mesh_mouse_hover = None
+
         
         # initialize pygame and create window
         pg.init()
@@ -51,8 +53,8 @@ class Renderer:
                     running = False
                 self.__camera_ctl(event)
                 self.__adjust_ratio(event)
-                self.__object_ctl(event)
                 self.__mouse_picking(event)
+                self.__object_ctl(event)
             
             # refresh screen
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -98,21 +100,25 @@ class Renderer:
             self.__update_projection()
 
     def __object_ctl(self, event):
+        """control Objects on screen"""
+        if self.mesh_mouse_hover == None:
+            return
+    
         if event.type == pg.MOUSEMOTION:
-            left_mouse, middle_mouse, right_mouse = pg.mouse.get_pressed(num_buttons=3)
+            left, middle, right = pg.mouse.get_pressed(num_buttons=3)
             mouse_x, mouse_y = event.rel 
-          
-        #     if left_mouse:
-        #         # Get the mouse position from the event object
-        #         self.obj.transform.rotation.move(dy=-mouse_x, dx=-mouse_y)
+            if left:
+                # Get the mouse position from the event object
+                self.mesh_mouse_hover.transform.rotation.move(dy=-mouse_x, dx=-mouse_y)
 
-        #         mod_keys = pg.key.get_mods()
-        #         if pg.KMOD_CTRL & mod_keys: 
-        #             self.obj.transform.rotation.move(dz=-mouse_x)
-        # if event.type == pg.MOUSEBUTTONDOWN:
-        #     left_mouse, middle_mouse, right_mouse = pg.mouse.get_pressed(num_buttons=3)
-        #     if right_mouse:
-        #         self.obj.enable = not self.obj.enable 
+                mod_keys = pg.key.get_mods()
+                if pg.KMOD_CTRL & mod_keys: 
+                    self.mesh_mouse_hover.transform.rotation.move(dz=-mouse_x)
+
+        if event.type == pg.MOUSEBUTTONDOWN:
+            left, middle, right = pg.mouse.get_pressed(num_buttons=3)
+            if right:
+                self.mesh_mouse_hover.enable = not self.mesh_mouse_hover.enable 
 
     def __camera_ctl(self, event):
         if event.type == pg.MOUSEWHEEL:
@@ -180,8 +186,9 @@ class Renderer:
             mesh.draw_ray_to_mesh(mouse_x, mouse_y)
             
         
-        hit = self.mesh_manager.get_hit()[1]
-        print('id:', hit[0], 'hit:', hit[1], 'distance', hit[2])
+        hit, id, dist = self.mesh_manager.get_hit()[1] 
+        self.mesh_mouse_hover = self.mesh_manager.get_mesh(hit)
+        # print('id:', id, 'hit:', hit, 'distance', dist)
         
     
     def quit(self):

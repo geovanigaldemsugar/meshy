@@ -74,7 +74,6 @@ class Mesh:
         sphere_r = np.sqrt(
             (xmax * scale_vec[0]) ** 2 + (ymax * scale_vec[1]) ** 2 + (zmax * scale_vec[2]) ** 2
         )
-        print(sphere_r)
         return sphere_r, sphere_C
     
     
