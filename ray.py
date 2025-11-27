@@ -66,7 +66,9 @@ class Ray:
             t = -b + np.sqrt(decriminant)
             return True, t
         if decriminant > 0:
-            t1 = -b + np.sqrt(decriminant)
+            t2 = -b + np.sqrt(decriminant)
+            t1 = -b - np.sqrt(decriminant)
+            
             return True, t1
         
 

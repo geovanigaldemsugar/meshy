@@ -186,10 +186,11 @@ class Renderer:
             mesh.draw_ray_to_mesh(mouse_x, mouse_y)
             
         
-        hit, id, dist = self.mesh_manager.get_hit()[1] 
-        self.mesh_mouse_hover = self.mesh_manager.get_mesh(hit)
+        id, hit, dist = self.mesh_manager.get_hit()[1] 
+        # print(self.mesh_manager.get_hit()[1])
+        self.mesh_mouse_hover = self.mesh_manager.get_mesh(id)
         # print('id:', id, 'hit:', hit, 'distance', dist)
-        
+        # print('id', id)
     
     def quit(self):
         self.mesh_manager.destroy_meshes()
