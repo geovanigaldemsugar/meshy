@@ -193,6 +193,42 @@ class Square(Mesh):
 
 
 
+class Pyramid(Mesh):
+    """Square Pyramid Mesh"""
+    def __init__(self):
+        vertices = (
+              # Position              Color
+             (-0.5, -0.5,  0.5),   (1.0, 0.0, 0.0),  #0 - right-bottom-front
+             (0.5, -0.5,  0.5),    (0.0, 1.0, 0.0),  #1 - left-bottom-front
+             (0,    0.5,    0),    (0.0, 0.0, 1.0),  #2 - apex
+             (-0.5, -0.5, -0.5),   (1.0, 0.0, 0.0),  #3 - left-bottom-back
+             (0.5, -0.5, -0.5),    (0.0, 1.0, 0.0)  #4 - right-bottom-back
+            )
+
+        indices = (
+            # Front
+            0, 1, 2,
+            # Right
+            1, 4, 2,
+            # Left
+            0, 2, 3,
+            # Bottom
+            0, 1, 4,  4, 3, 0
+        )
+        self.vertices = np.array(vertices, dtype=np.float32)
+        self.indices = np.array(indices, dtype=np.uint32)
+        super().__init__(self.vertices, self.indices)
+
+        self.wireframe = MeshWireFrame(vertices, indices)
+        self.enable = False
+        self.transform.position.update(0.0, 0.0, -3.0)
+    
+    def draw(self):
+        self.wireframe.transform = self.transform
+        if self.enable:
+            self.wireframe.draw()
+        else:
+            super().draw()
 
 class Cube(Mesh):
     """Cube Mesh"""
@@ -231,7 +267,7 @@ class Cube(Mesh):
         self.indices = np.array(indices, dtype=np.uint32)
         super().__init__(self.vertices, self.indices)
 
-        self.wireframe = CubeFrame()
+        self.wireframe = MeshWireFrame(vertices, indices)
         self.enable = False
         self.transform.position.update(0.0, 0.0, -3.0)
     
@@ -249,35 +285,26 @@ class Cube(Mesh):
         super().destroy()
 
 
-class Pyramid(Mesh):
-    """Square Pyramid Mesh"""
-    def __init__(self):
-        vertices = (
-              # Position              Color
-             (-0.5, -0.5,  0.5),   (1.0, 0.0, 0.0),  #0 - right-bottom-front
-             (0.5, -0.5,  0.5),    (0.0, 1.0, 0.0),  #1 - left-bottom-front
-             (0,    0.5,    0),    (0.0, 0.0, 1.0),  #2 - apex
-             (-0.5, -0.5, -0.5),   (1.0, 0.0, 0.0),  #3 - left-bottom-back
-             (0.5, -0.5, -0.5),    (0.0, 1.0, 0.0)  #4 - right-bottom-back
-            )
-
-        indices = (
-            # Front
-            0, 1, 2,
-            # Right
-            1, 4, 2,
-            # Left
-            0, 2, 3,
-            # Bottom
-            0, 1, 4,  4, 3, 0
-        )
+class MeshWireFrame(Mesh):
+    def __init__(self, vertices, indices):
+        indices = self.__create_outline(indices)
+        mode = GL_LINES
+        line = 4
         self.vertices = np.array(vertices, dtype=np.float32)
         self.indices = np.array(indices, dtype=np.uint32)
-        super().__init__(self.vertices, self.indices)
-
-        self.transform.position.update(-0.5, 0.0, -3.0)
+        super().__init__(self.vertices, self.indices, mode, line)
         
-
+    def __create_outline(self, indices):
+        outline = []
+        for i in range(0, len(indices), 3):
+            # get every three indices that create a quad for the object
+            triangle = indices[i:i+3]  # eg 0,1 2
+            # print(triangle)
+            # create a pair of perpendicular lines instead of the triangle
+            lines = triangle[0], triangle[1], triangle[1], triangle[2]
+            outline.extend(lines)
+            
+        return outline
 
 class CubeFrame(Mesh):
     """Cube WireFrame """
@@ -320,7 +347,7 @@ class CubeFrame(Mesh):
   
         self.transform.position.update(0.0, 0.0, -3.0)
 
-
+    
 
 class Camera():
     """Camera Object"""
@@ -342,8 +369,17 @@ class Sphere(Mesh):
         # 2. Initialize the Mesh with EBO setup
         super().__init__(self.vertices, self.indices, mode=GL_TRIANGLES)
         
-        # 3. Set initial transform
+        self.wireframe = MeshWireFrame(vertices, indices)
+        self.enable = False
         self.transform.position.update(0.0, 0.0, -3.0)
+    
+    def draw(self):
+        self.wireframe.transform = self.transform
+        if self.enable:
+            self.wireframe.draw()
+        else:
+            super().draw()
+
 
     def _generate_uv_sphere(self, radius, stacks, slices):
         """Generates UV Sphere vertices and indices (indices for EBO)."""
@@ -375,7 +411,7 @@ class Sphere(Mesh):
                 
                 # Vertex data: [Position (x,y,z), Color (r,g,b)] 
                 # Total stride is 6 floats (24 bytes) as defined in your Mesh class
-                vertices.extend([x, y, z, r, g, b])
+                vertices.extend([(x, y, z,), (r, g, b)])
 
         # --- Generate Indices (for EBO) ---
         # Connects vertices to form triangles.
@@ -398,8 +434,4 @@ class Sphere(Mesh):
                 indices.extend([v4, v2, v1])
 
         return vertices, indices
-    
-    def draw(self):
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
-        super().draw()
-    
+  

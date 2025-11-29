@@ -14,7 +14,7 @@ class Renderer:
         self.fov = 45
         self.mesh_mouse_hover = None
 
-        
+
         # initialize pygame and create window
         pg.init()
         pg.display.set_mode((width, height), pg.OPENGL | pg.DOUBLEBUF | pg.RESIZABLE)
@@ -41,7 +41,7 @@ class Renderer:
         
     def renderLoop(self):
         running = True
-        self.mesh_manager.add_mesh(Cube(), Cube())
+        self.mesh_manager.add_mesh(Sphere(), Cube())
         self.mesh_manager.get_mesh(1).transform.position.move(dz=-0.5)
         
         self.__update_model()
