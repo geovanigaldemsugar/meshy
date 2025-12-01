@@ -47,7 +47,7 @@ class Renderer:
         mesh.change_color(0.024, 0.969, 0.953)
         # (0.969, 0.573, 0.024) orange
         mesh_2 = self.mesh_manager.get_mesh(1)
-        mesh_2.transform.position.move(dz=-0.5)
+        mesh_2.transform.position.move(dx=-0.34, dz=-0.5)
         mesh_2.change_color(0.549, 0.024, 0.969)
         
         self.__update_model()
