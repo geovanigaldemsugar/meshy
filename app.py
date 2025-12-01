@@ -13,6 +13,7 @@ class Renderer:
         self.render_distance = 20
         self.fov = 45
         self.mesh_mouse_hover = None
+        self.mesh_focus = None
 
 
         # initialize pygame and create window
@@ -41,8 +42,13 @@ class Renderer:
         
     def renderLoop(self):
         running = True
-        self.mesh_manager.add_mesh(Sphere(), Cube())
-        self.mesh_manager.get_mesh(1).transform.position.move(dz=-0.5)
+        self.mesh_manager.add_mesh(Cube(), Cube())
+        mesh = self.mesh_manager.get_mesh(0) 
+        mesh.change_color(0.024, 0.969, 0.953)
+        # (0.969, 0.573, 0.024) orange
+        mesh_2 = self.mesh_manager.get_mesh(1)
+        mesh_2.transform.position.move(dz=-0.5)
+        mesh_2.change_color(0.549, 0.024, 0.969)
         
         self.__update_model()
 
@@ -100,25 +106,27 @@ class Renderer:
             self.__update_projection()
 
     def __object_ctl(self, event):
-        """control Objects on screen"""
-        if self.mesh_mouse_hover == None:
-            return
-    
-        if event.type == pg.MOUSEMOTION:
-            left, middle, right = pg.mouse.get_pressed(num_buttons=3)
-            mouse_x, mouse_y = event.rel 
-            if left:
-                # Get the mouse position from the event object
-                self.mesh_mouse_hover.transform.rotation.move(dy=-mouse_x, dx=-mouse_y)
-
-                mod_keys = pg.key.get_mods()
-                if pg.KMOD_CTRL & mod_keys: 
-                    self.mesh_mouse_hover.transform.rotation.move(dz=-mouse_x)
+        """control objects on screen"""
 
         if event.type == pg.MOUSEBUTTONDOWN:
-            left, middle, right = pg.mouse.get_pressed(num_buttons=3)
-            if right:
-                self.mesh_mouse_hover.enable = not self.mesh_mouse_hover.enable 
+            if event.button == 1:
+                if self.mesh_mouse_hover != None:
+                    if self.mesh_focus != self.mesh_mouse_hover and self.mesh_focus != None:
+                        self.mesh_focus.enable_highlight = False
+                        
+                    self.mesh_focus = self.mesh_mouse_hover
+                    self.mesh_focus.enable_highlight = True
+
+        if event.type == pg.MOUSEMOTION and self.mesh_focus != None:
+            left, middle, right = event.buttons
+            # Get the mouse position from the event object
+            mouse_x, mouse_y = event.rel 
+            self.mesh_focus.transform.rotation.move(dy=-mouse_x, dx=-mouse_y)
+
+        if event.type == pg.KEYDOWN:
+            if event.key == pg.K_ESCAPE:
+                self.mesh_focus.enable_highlight = False
+                self.mesh_focus = None
 
     def __camera_ctl(self, event):
         if event.type == pg.MOUSEWHEEL:
@@ -126,18 +134,19 @@ class Renderer:
             self.__update_camera()
           
         if event.type == pg.MOUSEMOTION:
-            left_mouse, middle_mouse, right_mouse = pg.mouse.get_pressed(num_buttons=3)
+            left, middle, right = event.buttons
             mouse_x, mouse_y = event.rel 
        
             modKeys = pg.key.get_mods()
             shiftKey = pg.KMOD_LSHIFT & modKeys
+            
 
-            if middle_mouse and not shiftKey:
+            if middle and not shiftKey:
                 # move camera with blender style orbit
                 self.camera.transform.move(0, mouse_y, mouse_x, sensitivity = 0.2)
                 self.__update_camera()
            
-            if  middle_mouse and shiftKey:
+            if middle and shiftKey:
                 # move view/target by panning
                 self.camera.transform.pan_camera(mouse_x, mouse_y, pan_speed=0.002)
                 self.__update_camera()
@@ -191,6 +200,7 @@ class Renderer:
         self.mesh_mouse_hover = self.mesh_manager.get_mesh(id)
         # print('id:', id, 'hit:', hit, 'distance', dist)
         # print('id', id)
+        # print(self.mesh_mouse_hover)
     
     def quit(self):
         self.mesh_manager.destroy_meshes()

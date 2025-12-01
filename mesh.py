@@ -19,7 +19,7 @@ class Mesh:
         self.indices_count = len(self.indices)
         self.mode = mode
         self.line = line
-        self.vpos = self.__rm_rgb(self.vertices)
+        self.vpos = None
 
         # will be initialized by Mesh Manager
         self.id = None
@@ -55,6 +55,7 @@ class Mesh:
         glBindBuffer(GL_ARRAY_BUFFER, 0)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)
 
+
     def draw_ray_to_mesh(self, mouse_x:float, mouse_y:float):
         ray_dir, ray_origin = self.ray.gen_ray(mouse_x, mouse_y)
         sphere_r, sphere_center = self.gen_bounding_sphere()
@@ -66,8 +67,8 @@ class Mesh:
         # prepare sphere center and radius in world space
 
         # Calculate xmax, ymax, zmax for axis aligned bounding box sphere
-        max_xyz =  self.vpos.max(axis=0)
-        xmax, ymax, zmax = max_xyz[0], max_xyz[1], max_xyz[2]
+        max_xyz =  self.vertices[:, 0:3].max(axis=0)
+        xmax, ymax, zmax = max_xyz[0], max_xyz[1], max_xyz[2]  
 
         sphere_C =self.transform.position.vector()
         scale_vec = self.transform.scale.vector()
@@ -76,13 +77,15 @@ class Mesh:
         )
         return sphere_r, sphere_C
     
-    
-    def __rm_rgb(self, vertices):
-        xyz_only = []
-        for i in range(0, len(vertices), 2):
-            xyz_only.append(vertices[i])
-        return np.array(xyz_only)
-                
+    def change_color(self, r, g, b):
+        # rgb 
+        rgb = self.vertices[:,3:6] 
+        rgb[:,0] = r
+        rgb[:,1] = g
+        rgb[:,2] = b
+        glBindBuffer(GL_ARRAY_BUFFER, self.vbo)
+        glBufferData(GL_ARRAY_BUFFER, self.vertices.nbytes, self.vertices, GL_STATIC_DRAW)
+
 
     def draw(self):
         """ Draw Mesh using glDrawElements """
@@ -95,7 +98,7 @@ class Mesh:
         glDeleteVertexArrays(1, (self.vao,))
         glDeleteBuffers(1, (self.vbo,))
         glDeleteBuffers(1, (self.ebo,))
-
+    
 
 class MeshManager:
     def __init__(self, renderer):
@@ -165,6 +168,13 @@ class MeshManager:
             yield id
             id += 1
 
+VERTEX_DTYPE = [('x', np.float32), 
+                ('y', np.float32),
+                ('z', np.float32),
+                ('r', np.float32),
+                ('g', np.float32), 
+                ('b', np.float32)]
+
 
 class Square(Mesh):
     """Square Mesh"""
@@ -232,20 +242,20 @@ class Pyramid(Mesh):
 
 class Cube(Mesh):
     """Cube Mesh"""
-
     def __init__(self):
+
         # Cube has 8 unique vertices 
-        vertices = (
+        vertices = [
             # Position (x,y,z)    Color (r,g,b)
-            (-0.5, -0.5,  0.5), (1.0, 0.0, 0.0), #0 - Front-Bottom-Left
-            ( 0.5, -0.5,  0.5), (0.0, 1.0, 0.0), #1 - Front-Bottom-Right
-            ( 0.5,  0.5,  0.5), (0.0, 0.0, 1.0), #2 - Front-Top-Right
-            (-0.5,  0.5,  0.5), (1.0, 1.0, 0.0), #3 - Front-Top-Left
-            (-0.5, -0.5, -0.5), (1.0, 0.0, 0.0), #4 - Back-Bottom-Left
-            ( 0.5, -0.5, -0.5), (0.0, 1.0, 0.0), #5 - Back-Bottom-Right
-            ( 0.5,  0.5, -0.5), (0.0, 0.0, 1.0), #6 - Back-Top-Right
-            (-0.5,  0.5, -0.5), (1.0, 1.0, 0.0), #7 - Back-Top-Left
-        )
+            (-0.5, -0.5,  0.5,   1.0, 0.0, 0.0), #0 - Front-Bottom-Left
+            (0.5, -0.5,  0.5,    0.0, 1.0, 0.0), #1 - Front-Bottom-Right
+            (0.5,  0.5,  0.5,    0.0, 0.0, 1.0), #2 - Front-Top-Right
+            (-0.5,  0.5,  0.5,   1.0, 1.0, 0.0), #3 - Front-Top-Left
+            (-0.5, -0.5, -0.5,   1.0, 0.0, 0.0), #4 - Back-Bottom-Left
+            (0.5, -0.5, -0.5,    0.0, 1.0, 0.0), #5 - Back-Bottom-Right
+            (0.5,  0.5, -0.5,    0.0, 0.0, 1.0), #6 - Back-Top-Right
+            (-0.5,  0.5, -0.5,   1.0, 1.0, 0.0) #7 - Back-Top-Left
+        ]
 
         # cube has 6 faces, 6 * 2(traingle per face) = 12 traingles, each traingle has 3 vertex  12 *3 = 36 indicies
         indices = (
@@ -265,33 +275,33 @@ class Cube(Mesh):
 
         self.vertices = np.array(vertices, dtype=np.float32)
         self.indices = np.array(indices, dtype=np.uint32)
-        super().__init__(self.vertices, self.indices)
+        self.enable_highlight =False
+        self.highlight = Highlight(self.vertices, self.indices)
 
-        self.wireframe = MeshWireFrame(vertices, indices)
-        self.enable = False
+        super().__init__(self.vertices, self.indices)
         self.transform.position.update(0.0, 0.0, -3.0)
     
     def draw(self):
-        self.wireframe.transform = self.transform
-        if self.enable:
-            self.wireframe.draw()
-        else:
-            super().draw()
-
-        
+        self.highlight.transform = self.transform
+        if self.enable_highlight:
+            self.highlight.draw()
+            
+        super().draw()
 
     def destroy(self):
-        self.wireframe.destroy()
+        self.highlight.destroy()
         super().destroy()
+
 
 
 class MeshWireFrame(Mesh):
     def __init__(self, vertices, indices):
         indices = self.__create_outline(indices)
         mode = GL_LINES
-        line = 4
+        line = 1
         self.vertices = np.array(vertices, dtype=np.float32)
         self.indices = np.array(indices, dtype=np.uint32)
+        self.change_color(1, 0.647, 0)
         super().__init__(self.vertices, self.indices, mode, line)
         
     def __create_outline(self, indices):
@@ -299,12 +309,46 @@ class MeshWireFrame(Mesh):
         for i in range(0, len(indices), 3):
             # get every three indices that create a quad for the object
             triangle = indices[i:i+3]  # eg 0,1 2
-            # print(triangle)
             # create a pair of perpendicular lines instead of the triangle
             lines = triangle[0], triangle[1], triangle[1], triangle[2]
             outline.extend(lines)
             
         return outline
+    
+
+
+class Highlight(Mesh):
+    def __init__(self, vertices, indices):
+        indices = self.__create_outline(indices)
+        mode = GL_LINES
+        line = 1
+        self.vertices = np.array(vertices, dtype=np.float32)
+        self.indices = np.array(indices, dtype=np.uint32)
+        self.change_color(1, 0.647, 0)
+        super().__init__(self.vertices, self.indices, mode, line)
+        self.transform.scale.move(0.5, 0.5, 0.5)
+    def __create_outline(self, indices):
+        outline = []
+        for i in range(0, len(indices), 3):
+            # get every three indices that create a quad for the object
+            triangle = indices[i:i+3]  # eg 0,1 2
+            # create a pair of perpendicular lines instead of the triangle
+            lines = triangle[0], triangle[1], triangle[1], triangle[2]
+            outline.extend(lines)
+            
+        return outline
+  
+
+    def change_color(self, r, g, b):
+        # rgb 
+        rgb = self.vertices[:,3:6] 
+        rgb[:,0] = r
+        rgb[:,1] = g
+        rgb[:,2] = b
+
+
+
+
 
 class CubeFrame(Mesh):
     """Cube WireFrame """
@@ -363,7 +407,7 @@ class Sphere(Mesh):
         # 1. Generate Vertices and Indices
         vertices, indices = self._generate_uv_sphere(radius, stacks, slices)
 
-        self.vertices = np.array(vertices, dtype=np.float32)
+        self.vertices = np.array(vertices, dtype=VERTEX_DTYPE)
         self.indices = np.array(indices, dtype=np.uint32)
         
         # 2. Initialize the Mesh with EBO setup
@@ -411,7 +455,7 @@ class Sphere(Mesh):
                 
                 # Vertex data: [Position (x,y,z), Color (r,g,b)] 
                 # Total stride is 6 floats (24 bytes) as defined in your Mesh class
-                vertices.extend([(x, y, z,), (r, g, b)])
+                vertices.extend([(x, y, z, r, g, b)])
 
         # --- Generate Indices (for EBO) ---
         # Connects vertices to form triangles.
