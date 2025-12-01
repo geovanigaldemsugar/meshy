@@ -6,9 +6,6 @@ from app import Renderer
 from  ray import *
 
 
-
-        
-
 class Mesh:
     """ Base class for Creating Object Meshes using Index Buffer Object(EBO) """
 
@@ -104,7 +101,7 @@ class MeshManager:
     def __init__(self, renderer):
         self.meshes:list[Mesh] = []
         self.renderer:Renderer = renderer
-
+        self.hit_manager:HitManager = HitManager(self.meshes)
         # initialize id generator
         self.gen_id = self._id_generator()
     
@@ -112,8 +109,11 @@ class MeshManager:
         for arg in args:
             arg.id = next(self.gen_id)
             arg.renderer = self.renderer
-            arg.ray = Ray(self.renderer)
+            arg.ray = Ray(self.renderer, arg.id)
             self.meshes.append(arg)
+   
+        # update hit manager
+        self.hit_manager.meshes = self.meshes
 
     def mesh_ids(self):
         return [mesh.id for mesh in self.meshes]
@@ -127,53 +127,12 @@ class MeshManager:
             if id == mesh.id:
                 return mesh
         return None
-
-    def hit_status(self):
-        dtype = ([('id', int), ('hit', bool), ('distance', 'f4')])
-        hit_stats = []
-        for mesh in self.meshes:
-            record = (mesh.id, mesh.hit[0], mesh.hit[1])
-            hit_stats.append(record)
-        return np.array(hit_stats, dtype=dtype)
     
-    def get_hit(self):
-        """get the hit object of the mesh the mouse is currently point on returns (mesh.id, hit, distance)"""
-        hit_stats = self.hit_status()
-        # check first if mouse ray hit multiple objects
-        hit_true = hit_stats[hit_stats['hit']]
-        multiple_hits = len(hit_true)
-        if multiple_hits == 0:
-            return False, (None, None, None)
-        if multiple_hits > 0:
-            hit = self._closest_hit(hit_true)
-            # print(hit)
-            # print(hit)
-            return True, hit
-        
-        hit = hit_true[0]
-        return True, hit
-        
-    def _closest_hit(self, hits):
-        """find closest mesh, that mouse picking ray hit"""
-        min_distance = np.min(hits['distance'])
-        closest = (hits['distance'] == min_distance)
-        h = hits[closest]
-        # print('h', h)
-        return hits[closest][0].item()
-           
-                
     def _id_generator(self):
         id = 0
         while True:
             yield id
             id += 1
-
-VERTEX_DTYPE = [('x', np.float32), 
-                ('y', np.float32),
-                ('z', np.float32),
-                ('r', np.float32),
-                ('g', np.float32), 
-                ('b', np.float32)]
 
 
 class Square(Mesh):

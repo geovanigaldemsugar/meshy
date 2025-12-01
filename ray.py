@@ -3,9 +3,59 @@ import numpy as np
 import math
 
 
+
+class HitManager:
+    def __init__(self, meshes):
+        self.meshes = meshes
+
+    def draw_rays(self, mouse_x, mouse_y):
+        for mesh in self.meshes:
+            mesh.draw_ray_to_mesh(mouse_x, mouse_y)
+
+    def hit_status(self):
+        dtype = ([('id', int), ('hit', bool), ('distance', 'f4')])
+        hit_stats = []
+        for mesh in self.meshes:
+            record = mesh.hit.info()
+            hit_stats.append(record)
+        return np.array(hit_stats, dtype=dtype)
+    
+    def get_hit(self):
+        """get the hit object of the mesh the mouse is currently point on returns (mesh.id, hit, distance)"""
+        hit_stats = self.hit_status()
+        # check first if mouse ray hit multiple objects
+        hit_true = hit_stats[hit_stats['hit']]
+        hits = len(hit_true)
+        if hits == 0:
+            return (None, None, None)
+        if hits > 0:
+            hit = self._closest_hit(hit_true)
+            return hit
+        
+        hit = hit_true[0]
+        return hit
+        
+    def _closest_hit(self, hits):
+        """find closest mesh, that mouse picking ray hit"""
+        min_distance = np.min(hits['distance'])
+        closest = (hits['distance'] == min_distance)
+        h = hits[closest]
+        # print('h', h)
+        return hits[closest][0].item()
+        
+class Hit:
+    def __init__(self, id:int, hit:bool, distance:float):
+        self.id = id
+        self.hit = hit
+        self.distance = distance
+    
+    def info(self):
+        return self.id, self.hit, self.distance
+
 class Ray:
-    def __init__(self, renderer:Renderer):
+    def __init__(self, renderer:Renderer, id):
         self.renderer = renderer
+        self.id = id
         
     def gen_ray(self, mouse_x:float, mouse_y:float):
         """generates a ray direction towards target  from screen given (mouse_x, mouse_y)"""
@@ -46,8 +96,7 @@ class Ray:
         ray_origin = cam_pos
 
         return ray_dir_world, ray_origin
-
-
+        
 
     def ray_sphere_intersect(self, ray_O: np.ndarray, ray_D: np.ndarray, sphere_C: np.ndarray, sphere_r:float):
         """O - ray origin, D - ray direction, C - sphere center, r - sphere radius"""
@@ -61,15 +110,16 @@ class Ray:
         decriminant = b**2 - c
         
         if decriminant < 0:
-            return False, float('inf')
+            return Hit(self.id, False, float('inf'))
+        
         if decriminant == 0:
-            t = -b + np.sqrt(decriminant)
-            return True, t
+            t1 = -b + np.sqrt(decriminant)
+            return Hit(self.id, True, t1)
+        
         if decriminant > 0:
-            t2 = -b + np.sqrt(decriminant)
+            # t2 = -b + np.sqrt(decriminant)
             t1 = -b - np.sqrt(decriminant)
-            
-            return True, t1
+            return Hit(self.id, True, t1)
         
 
         
@@ -79,5 +129,6 @@ class Ray:
             return np.array([0, 0, 0], dtype=np.float32)
         vector = vector / vec_magnitude
         return vector
+
 
 

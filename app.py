@@ -188,15 +188,11 @@ class Renderer:
     def __mouse_picking(self, event):
         if not event.type == pg.MOUSEMOTION:
             return None
-        
-        mouse_x, mouse_y = event.pos
 
-        for mesh in self.mesh_manager.meshes:
-            mesh.draw_ray_to_mesh(mouse_x, mouse_y)
-            
+        mouse_x, mouse_y = event.pos
+        self.mesh_manager.hit_manager.draw_rays(mouse_x, mouse_y)
         
-        id, hit, dist = self.mesh_manager.get_hit()[1] 
-        # print(self.mesh_manager.get_hit()[1])
+        id, hit, dist = self.mesh_manager.hit_manager.get_hit()
         self.mesh_mouse_hover = self.mesh_manager.get_mesh(id)
         # print('id:', id, 'hit:', hit, 'distance', dist)
         # print('id', id)
