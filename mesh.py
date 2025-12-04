@@ -167,11 +167,11 @@ class Pyramid(Mesh):
     def __init__(self):
         vertices = (
               # Position              Color
-             (-0.5, -0.5,  0.5),   (1.0, 0.0, 0.0),  #0 - right-bottom-front
-             (0.5, -0.5,  0.5),    (0.0, 1.0, 0.0),  #1 - left-bottom-front
-             (0,    0.5,    0),    (0.0, 0.0, 1.0),  #2 - apex
-             (-0.5, -0.5, -0.5),   (1.0, 0.0, 0.0),  #3 - left-bottom-back
-             (0.5, -0.5, -0.5),    (0.0, 1.0, 0.0)  #4 - right-bottom-back
+             (-0.5, -0.5,  0.5,   1.0, 0.0, 0.0),  #0 - right-bottom-front
+             (0.5, -0.5,  0.5,    0.0, 1.0, 0.0),  #1 - left-bottom-front
+             (0,    0.5,    0,    0.0, 0.0, 1.0),  #2 - apex
+             (-0.5, -0.5, -0.5,   1.0, 0.0, 0.0),  #3 - left-bottom-back
+             (0.5, -0.5, -0.5,    0.0, 1.0, 0.0)  #4 - right-bottom-back
             )
 
         indices = (
@@ -186,18 +186,18 @@ class Pyramid(Mesh):
         )
         self.vertices = np.array(vertices, dtype=np.float32)
         self.indices = np.array(indices, dtype=np.uint32)
-        super().__init__(self.vertices, self.indices)
+        self.enable_highlight =False
+        self.highlight = Highlight(self.vertices, self.indices)
 
-        self.wireframe = MeshWireFrame(vertices, indices)
-        self.enable = False
+        super().__init__(self.vertices, self.indices)
         self.transform.position.update(0.0, 0.0, -3.0)
     
     def draw(self):
-        self.wireframe.transform = self.transform
-        if self.enable:
-            self.wireframe.draw()
-        else:
-            super().draw()
+        self.highlight.transform = self.transform
+        if self.enable_highlight:
+            self.highlight.draw()
+            
+        super().draw()
 
 class Cube(Mesh):
     """Cube Mesh"""
@@ -286,6 +286,7 @@ class Highlight(Mesh):
         self.change_color(1, 0.647, 0)
         super().__init__(self.vertices, self.indices, mode, line)
         self.transform.scale.move(0.5, 0.5, 0.5)
+
     def __create_outline(self, indices):
         outline = []
         for i in range(0, len(indices), 3):
@@ -307,51 +308,6 @@ class Highlight(Mesh):
 
 
 
-
-
-class CubeFrame(Mesh):
-    """Cube WireFrame """
-
-    def __init__(self):
-        # Cube has 8 unique vertices 
-        vertices = (
-            # Position             Color
-            -0.5, -0.5,  0.5,   1.0, 1.0, 1.0, #0 - Front-Bottom-Left
-             0.5, -0.5,  0.5,   1.0, 1.0, 1.0, #1 - Front-Bottom-Right
-             0.5,  0.5,  0.5,   1.0, 1.0, 1.0, #2 - Front-Top-Right
-            -0.5,  0.5,  0.5,   1.0, 1.0, 1.0, #3 - Front-Top-Left
-            -0.5, -0.5, -0.5,   1.0, 1.0, 1.0, #4 - Back-Bottom-Left
-             0.5, -0.5, -0.5,   1.0, 1.0, 1.0, #5 - Back-Bottom-Right
-             0.5,  0.5, -0.5,   1.0, 1.0, 1.0, #6 - Back-Top-Right
-            -0.5,  0.5, -0.5,   1.0, 1.0, 1.0, #7 - Back-Top-Left
-        )
-
-        # cube has 12 edges/linesegments, each edge has 2 vertices (2 * 12), cube has 24 vertices, but edges share points
-        indices = (
-            # Front
-            0, 1,  1, 2,  2, 3,  3, 0,
-
-            # Right
-            1, 5,  5, 6,   6, 2,
-
-            # Back
-            4, 5,  5, 6,  6, 7,  7, 4,
-
-            # Left
-            0, 4,   7, 3
-
-        )
-
-        vertices = np.array(vertices, dtype=np.float32)
-        indices = np.array(indices, dtype=np.uint32)
-        mode = GL_LINES
-        line = 4
-        super().__init__(vertices, indices, mode, line)
-  
-        self.transform.position.update(0.0, 0.0, -3.0)
-
-    
-
 class Camera():
     """Camera Object"""
     def __init__(self):
@@ -362,79 +318,90 @@ class Camera():
 class Sphere(Mesh):
     """Sphere Mesh using UV Sphere generation and EBO"""
 
-    def __init__(self, radius=0.5, stacks=16, slices=16):
+    def __init__(self, radius=0.5, stacks=40, slices=40):
         # 1. Generate Vertices and Indices
         vertices, indices = self._generate_uv_sphere(radius, stacks, slices)
 
-        self.vertices = np.array(vertices, dtype=VERTEX_DTYPE)
+        self.vertices = np.array(vertices, dtype=np.float32)
         self.indices = np.array(indices, dtype=np.uint32)
         
         # 2. Initialize the Mesh with EBO setup
         super().__init__(self.vertices, self.indices, mode=GL_TRIANGLES)
         
-        self.wireframe = MeshWireFrame(vertices, indices)
-        self.enable = False
+        self.highlight = Highlight(self.vertices, self.indices)
+        self.enable_highlight = False
         self.transform.position.update(0.0, 0.0, -3.0)
     
     def draw(self):
-        self.wireframe.transform = self.transform
-        if self.enable:
-            self.wireframe.draw()
-        else:
-            super().draw()
+        self.highlight.transform = self.transform
+        if self.enable_highlight:
+            self.highlight.draw()
+       
+        super().draw()
 
+    def gen_uv_sphere(self, radius, stacks, slices):
+        vertices = []
+        
+        # 360 degrees is 2pi radians
+        # Angle steps between slices (longitude) and stacks (latitude)
+        d_slice = np.pi / stacks  # Phi: 0 to PI (Top to Bottom)
+        d_stack = 2 * np.pi / slices  # Theta: 0 to 2*PI (Around the sphere)
+
+        # Iterate over stacks (latitude lines)
+        for i in range(stacks + 1):
+            # i = 0 (top pole), i = stacks (bottom pole)
+            phi = i * d_slice
+            y = radius * np.cos(phi)
+            
+            # Iterate over slices (longitude lines)
+            for j in range(slices + 1):
+                theta = j * d_stack
+                
+                # Calculate vertex position (x, z) on the latitude circle
+                x = radius * np.sin(phi) * np.cos(theta)
+                z = radius * np.sin(phi) * np.sin(theta)
+
+                # Use position as color for visualization (optional)
+                r, g, b = x / radius, y / radius, z / radius
+
+                vertices.append((x, y, z ,r, g, b)) # Use white color for simplicity
+
+        return vertices
 
     def _generate_uv_sphere(self, radius, stacks, slices):
         """Generates UV Sphere vertices and indices (indices for EBO)."""
-        vertices = []
+        vertices = self.gen_uv_sphere(radius, stacks, slices)
         indices = []
-
-        # --- Generate Vertices ---
-        # The stack loop iterates over latitude (phi), from pole to pole.
-        for i in range(stacks + 1):
-            # i/stacks gives 0.0 to 1.0, scaled to pi for latitude (phi).
-            phi = (i / stacks) * np.pi 
-            sin_phi = np.sin(phi)
-            cos_phi = np.cos(phi)
-
-            # The slice loop iterates over longitude (theta).
-            for j in range(slices + 1):
-                # j/slices gives 0.0 to 1.0, scaled to 2*pi for longitude (theta).
-                theta = (j / slices) * 2 * np.pi
-                
-                # Parametric Sphere Equations (x, y, z)
-                x = radius * np.cos(theta) * sin_phi
-                y = radius * cos_phi  # Y is typically up/down for UV spheres
-                z = radius * np.sin(theta) * sin_phi
-                
-                # We reuse the position for a simplistic color (R, G, B)
-                r = (x + radius) / (2 * radius)  # Normalize x to 0..1 range
-                g = (y + radius) / (2 * radius)  # Normalize y to 0..1 range
-                b = (z + radius) / (2 * radius)  # Normalize z to 0..1 range
-                
-                # Vertex data: [Position (x,y,z), Color (r,g,b)] 
-                # Total stride is 6 floats (24 bytes) as defined in your Mesh class
-                vertices.extend([(x, y, z, r, g, b)])
-
-        # --- Generate Indices (for EBO) ---
-        # Connects vertices to form triangles.
+        
+        # --- Generate Indices ---
+        # Vertices are arranged: (s0, l0), (s0, l1), ..., (s1, l0), (s1, l1), ...
+        # where s is stack index and l is slice index
+        
+        # Iterate over quads formed by (stack i, slice j) and (stack i+1, slice j+1)
         for i in range(stacks):
             for j in range(slices):
-                # v1, v2, v3, v4 are the four corner indices of a quad face
-                # The index calculation depends on the nested loop structure
+                # Calculate the 4 vertex indices that form the quad:
+                # v1 --- v2
+                # |      |
+                # v3 --- v4
+                
+                # Vertex index for current stack (i) and current slice (j)
                 v1 = i * (slices + 1) + j
+                # Vertex index for next stack (i) and next slice (j+1)
                 v2 = v1 + 1
+                # Vertex index for next stack (i+1) and current slice (j)
                 v3 = (i + 1) * (slices + 1) + j
+                # Vertex index for next stack (i+1) and next slice (j+1)
                 v4 = v3 + 1
                 
-                # This quad is divided into two triangles (v1, v3, v4) and (v4, v2, v1)
-                # The order ensures consistent winding for back-face culling
+                # The quad is split into two triangles: (v1, v3, v4) and (v1, v4, v2)
+                # Ensure correct winding order (e.g., counter-clockwise) for front-facing
                 
-                # Triangle 1 (Bottom-Left to Top-Right half)
-                indices.extend([v1, v3, v4])
+                # Triangle 1 (Bottom-Left)
+                indices.extend([v1, v3, v4]) 
                 
-                # Triangle 2 (Top-Right to Bottom-Right half)
-                indices.extend([v4, v2, v1])
+                # Triangle 2 (Top-Right)
+                indices.extend([v1, v4, v2]) 
 
         return vertices, indices
   

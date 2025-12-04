@@ -14,7 +14,7 @@ class Renderer:
         self.fov = 45
         self.mesh_mouse_hover = None
         self.mesh_focus = None
-
+        self.ray = Ray(self, 0)
 
         # initialize pygame and create window
         pg.init()
@@ -42,12 +42,12 @@ class Renderer:
         
     def renderLoop(self):
         running = True
-        self.mesh_manager.add_mesh(Cube(), Cube())
+        self.mesh_manager.add_mesh(Sphere(), Cube())
         mesh = self.mesh_manager.get_mesh(0) 
-        mesh.change_color(0.024, 0.969, 0.953)
+        # mesh.change_color(0.024, 0.969, 0.953)
         # (0.969, 0.573, 0.024) orange
         mesh_2 = self.mesh_manager.get_mesh(1)
-        mesh_2.transform.position.move(dx=-0.34, dz=-0.5)
+        mesh_2.transform.position.move(dx=-0.34,dy=0.8, dz=-0.5)
         mesh_2.change_color(0.549, 0.024, 0.969)
         
         self.__update_model()
@@ -72,6 +72,7 @@ class Renderer:
             # self.obj.transform.rotation.move(dz=1)
             # self.obj.transform.position.bounce(dy=0.01)
             # self.obj.transform.scale.bounce(dx=0.001)
+            self._gravity()
             
             #update model matrices and draw meshes
             self.__update_model()
@@ -119,12 +120,29 @@ class Renderer:
 
         if event.type == pg.MOUSEMOTION and self.mesh_focus != None:
             left, middle, right = event.buttons
+
             # Get the mouse position from the event object
             mouse_x, mouse_y = event.rel 
             self.mesh_focus.transform.rotation.move(dy=-mouse_x, dx=-mouse_y)
+            modKeys = pg.key.get_mods()
+            shiftKey = pg.KMOD_LSHIFT & modKeys
+
+            if shiftKey:
+                z = -1
+                x = self.mesh_focus.transform.position.x
+                x, y = 2 * (mouse_x/self.scr_width) -1, 1 - 2 * (mouse_y/self.scr_height)
+                w = self.render_distance
+                clip = np.linalg.inv(self.projection) * np.array([x,y,z,w], dtype=np.float32)
+                world = np.linalg.inv(self.view) * clip
+                world = self.ray.normalize_vec(world[0][:3])
+                print(world)
+
+                
+                self.mesh_focus.transform.position.update(x=x, y=world[1], z =z)
+            
 
         if event.type == pg.KEYDOWN:
-            if event.key == pg.K_ESCAPE:
+            if event.key == pg.K_ESCAPE and self.mesh_focus != None:
                 self.mesh_focus.enable_highlight = False
                 self.mesh_focus = None
 
@@ -191,12 +209,21 @@ class Renderer:
 
         mouse_x, mouse_y = event.pos
         self.mesh_manager.hit_manager.draw_rays(mouse_x, mouse_y)
-        
+
         id, hit, dist = self.mesh_manager.hit_manager.get_hit()
         self.mesh_mouse_hover = self.mesh_manager.get_mesh(id)
         # print('id:', id, 'hit:', hit, 'distance', dist)
         # print('id', id)
         # print(self.mesh_mouse_hover)
+
+    def _gravity(self, g=0.0981):
+        # simulate earth's gravity
+        for mesh in self.mesh_manager.meshes:
+            if mesh.transform.position.y > 0:
+                mesh.transform.position.move(dy=-0.0981)
+
+        
+
     
     def quit(self):
         self.mesh_manager.destroy_meshes()
