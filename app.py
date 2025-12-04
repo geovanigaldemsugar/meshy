@@ -128,13 +128,15 @@ class Renderer:
             shiftKey = pg.KMOD_LSHIFT & modKeys
 
             if shiftKey:
-                z = -1
+                z = self.mesh_focus.transform.position.z
                 x = self.mesh_focus.transform.position.x
-                x, y = 2 * (mouse_x/self.scr_width) -1, 1 - 2 * (mouse_y/self.scr_height)
+                x, y = 2 * (mouse_x/self.scr_width)-1, 1 - 2 * (mouse_y/self.scr_height)
                 w = self.render_distance
-                clip = np.linalg.inv(self.projection) * np.array([x,y,z,w], dtype=np.float32)
-                world = np.linalg.inv(self.view) * clip
-                world = self.ray.normalize_vec(world[0][:3])
+                clip = np.linalg.inv(self.projection) @ np.array([x,y,z,w], dtype=np.float32)
+                world = np.linalg.inv(self.view) @ clip
+                if world[3] != 0:
+                    world = world / world[3]
+
                 print(world)
 
                 
