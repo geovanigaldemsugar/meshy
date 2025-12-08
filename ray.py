@@ -1,7 +1,6 @@
-from app import Renderer
-import numpy as np
 import math
-
+import numpy as np
+from app import Renderer
 
 
 class HitManager:

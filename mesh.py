@@ -1,10 +1,10 @@
+import pyrr
+import numpy as np
+from ray import *
 from OpenGL.GL import *
 from OpenGL.constant import IntConstant
-import numpy as np
 from vector import Transform, OrbitalTransfrom
-from app import Renderer
-from  ray import *
-
+from hightlight import Highlight
 
 class Mesh:
     """ Base class for Creating Object Meshes using Index Buffer Object(EBO) """
@@ -17,6 +17,10 @@ class Mesh:
         self.mode = mode
         self.line = line
         self.vpos = None
+        self.highlight = Highlight(self.vertices, self.indices)
+        self.enable_highlight =False
+
+
 
         # will be initialized by Mesh Manager
         self.id = None
@@ -82,19 +86,36 @@ class Mesh:
         rgb[:,2] = b
         glBindBuffer(GL_ARRAY_BUFFER, self.vbo)
         glBufferData(GL_ARRAY_BUFFER, self.vertices.nbytes, self.vertices, GL_STATIC_DRAW)
-
+    
+    def create_model_matrix(self):
+        """create model matrix with T * R * S
+        Returns:
+            np.ndarray: model matrix
+        """
+        model = pyrr.matrix44.create_identity(dtype=np.float32)
+        model = pyrr.matrix44.multiply(m1=model, m2=pyrr.matrix44.create_from_scale(scale=self.transform.scale.vector(), dtype=np.float32))
+        model = pyrr.matrix44.multiply(m1=model, m2=pyrr.matrix44.create_from_eulers(eulers=self.transform.rotation.to_radians(), dtype=np.float32))
+        model = pyrr.matrix44.multiply(m1=model,  m2=pyrr.matrix44.create_from_translation(vec=self.transform.position.vector(), dtype=np.float32))
+        
+        return model
 
     def draw(self):
         """ Draw Mesh using glDrawElements """
         glBindVertexArray(self.vao)
         # Draw primitive/triangles using indices specified in the EBO
         glDrawElements(self.mode, self.indices_count, GL_UNSIGNED_INT, ctypes.c_void_p(0))
-
+        
+        # Draw highlight if enabled
+        if self.enable_highlight:
+            self.highlight.transform = self.transform
+            self.highlight.draw()
 
     def destroy(self):
         glDeleteVertexArrays(1, (self.vao,))
         glDeleteBuffers(1, (self.vbo,))
         glDeleteBuffers(1, (self.ebo,))
+        self.highlight.destroy()
+
     
 
 class MeshManager:
@@ -114,6 +135,86 @@ class MeshManager:
    
         # update hit manager
         self.hit_manager.meshes = self.meshes
+
+    def load_mesh(self, filepath:str):
+        vertices, indices = self._load_object(filepath) 
+        vertices = np.array(vertices, dtype=np.float32)
+        indices = np.array(indices, dtype=np.uint32)
+        mesh = Mesh(vertices, indices)
+        self.add_mesh(mesh)
+
+    def _load_object(self, filepath:str):
+        vertices = []
+        indices = []
+        with open(filepath, 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                line = line.split(' ')
+
+                if line[0] == 'v':
+                    v = self.read_vertex_data(line)
+                    v.extend([0.8, 0.8, 0.8])
+                    vertices.append(v)
+
+                elif line[0] == 'f':
+                    i = self.read_face_data(line)
+                    indices.extend(i)
+                
+                elif line[0] == 'o':
+                    name = line[1]
+                
+        print(f'Loaded /{filepath}: {len(vertices)} vertices, {len(indices)//6} faces')
+    
+        return vertices, indices
+    
+    def read_vertex_data(self, vertex_line:list[str]) -> list[float]:
+        return [float(vertex_line[1]),
+                float(vertex_line[2]),
+                float(vertex_line[3])]
+    
+    def read_face_data(self, face_line:list[str]) -> list[int]:
+        # draw each traingle in quad
+        # triangles in face 4 points/ 2 triangles
+        face_v_index = []
+        indices = []
+        for corner in face_line[1:]:
+            face_v_index.append(self.read_corner(corner, indices))
+        
+       
+        # draw each traingle in quad/face
+        t1 = [face_v_index[0], #1st point
+                face_v_index[1],#2nd point
+                face_v_index[2]#3rd point
+                ]
+        indices.extend(t1)
+
+        if len(face_v_index) > 3:
+            # if its a quad draw second traingle
+            t2 = [face_v_index[2],#3st point
+                    face_v_index[3],#4th point
+                    face_v_index[0]#1st point
+                    ]
+            indices.extend(t2)
+
+                
+        # print(t1, '-', t2)
+        # print(face_v_index)
+
+        return indices
+        
+
+    def read_corner(self, corner:str, indices:list[list[float]]) -> int:
+        corner = corner.split('/')
+        v_index = int(corner[0]) - 1
+        return v_index
+        # indices.append(v_index)
+        
+
+        # implement later
+        # vt_index = 
+        # vn_index =  
+
+
 
     def mesh_ids(self):
         return [mesh.id for mesh in self.meshes]
@@ -186,19 +287,9 @@ class Pyramid(Mesh):
         )
         self.vertices = np.array(vertices, dtype=np.float32)
         self.indices = np.array(indices, dtype=np.uint32)
-        self.enable_highlight =False
-        self.highlight = Highlight(self.vertices, self.indices)
-
         super().__init__(self.vertices, self.indices)
         self.transform.position.update(0.0, 0.0, -3.0)
-    
-    def draw(self):
-        self.highlight.transform = self.transform
-        if self.enable_highlight:
-            self.highlight.draw()
-            
-        super().draw()
-
+  
 class Cube(Mesh):
     """Cube Mesh"""
     def __init__(self):
@@ -234,23 +325,9 @@ class Cube(Mesh):
 
         self.vertices = np.array(vertices, dtype=np.float32)
         self.indices = np.array(indices, dtype=np.uint32)
-        self.enable_highlight =False
-        self.highlight = Highlight(self.vertices, self.indices)
-
         super().__init__(self.vertices, self.indices)
         self.transform.position.update(0.0, 0.0, -3.0)
     
-    def draw(self):
-        self.highlight.transform = self.transform
-        if self.enable_highlight:
-            self.highlight.draw()
-            
-        super().draw()
-
-    def destroy(self):
-        self.highlight.destroy()
-        super().destroy()
-
 
 
 class MeshWireFrame(Mesh):
@@ -274,38 +351,7 @@ class MeshWireFrame(Mesh):
             
         return outline
     
-
-
-class Highlight(Mesh):
-    def __init__(self, vertices, indices):
-        indices = self.__create_outline(indices)
-        mode = GL_LINES
-        line = 1
-        self.vertices = np.array(vertices, dtype=np.float32)
-        self.indices = np.array(indices, dtype=np.uint32)
-        self.change_color(1, 0.647, 0)
-        super().__init__(self.vertices, self.indices, mode, line)
-        self.transform.scale.move(0.5, 0.5, 0.5)
-
-    def __create_outline(self, indices):
-        outline = []
-        for i in range(0, len(indices), 3):
-            # get every three indices that create a quad for the object
-            triangle = indices[i:i+3]  # eg 0,1 2
-            # create a pair of perpendicular lines instead of the triangle
-            lines = triangle[0], triangle[1], triangle[1], triangle[2]
-            outline.extend(lines)
-            
-        return outline
-  
-
-    def change_color(self, r, g, b):
-        # rgb 
-        rgb = self.vertices[:,3:6] 
-        rgb[:,0] = r
-        rgb[:,1] = g
-        rgb[:,2] = b
-
+ 
 
 
 class Camera():
@@ -327,17 +373,8 @@ class Sphere(Mesh):
         
         # 2. Initialize the Mesh with EBO setup
         super().__init__(self.vertices, self.indices, mode=GL_TRIANGLES)
-        
-        self.highlight = Highlight(self.vertices, self.indices)
-        self.enable_highlight = False
         self.transform.position.update(0.0, 0.0, -3.0)
-    
-    def draw(self):
-        self.highlight.transform = self.transform
-        if self.enable_highlight:
-            self.highlight.draw()
-       
-        super().draw()
+   
 
     def gen_uv_sphere(self, radius, stacks, slices):
         vertices = []

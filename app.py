@@ -1,9 +1,10 @@
 import pygame as pg
-from OpenGL.GL import *
 import numpy as np
-from OpenGL.GL.shaders import compileProgram, compileShader
 import pyrr
+import pygame as pg
 from mesh import *
+from OpenGL.GL import *
+from OpenGL.GL.shaders import compileProgram, compileShader
 
 
 class Renderer:
@@ -15,6 +16,9 @@ class Renderer:
         self.mesh_mouse_hover = None
         self.mesh_focus = None
         self.ray = Ray(self, 0)
+
+        #load objects
+        # self._load_object("models/cube.obj")
 
         # initialize pygame and create window
         pg.init()
@@ -42,13 +46,17 @@ class Renderer:
         
     def renderLoop(self):
         running = True
-        self.mesh_manager.add_mesh(Sphere(), Cube())
+        # self.mesh_manager.add_mesh(Sphere())
+        self.mesh_manager.load_mesh("models/Revy_run_000000.obj")
         mesh = self.mesh_manager.get_mesh(0) 
+        mesh.transform.position.move(dx=0.0, dy=0.0, dz=-3)
+        mesh.transform.rotation.move(dy=180, dx=90)
+        
         # mesh.change_color(0.024, 0.969, 0.953)
         # (0.969, 0.573, 0.024) orange
-        mesh_2 = self.mesh_manager.get_mesh(1)
-        mesh_2.transform.position.move(dx=-0.34,dy=0.8, dz=-0.5)
-        mesh_2.change_color(0.549, 0.024, 0.969)
+        # mesh_2 = self.mesh_manager.get_mesh(1)
+        # mesh_2.transform.position.move(dx=-0.34,dy=0.0, dz=-3)
+        # mesh_2.change_color(0.549, 0.024, 0.969)
         
         self.__update_model()
 
@@ -72,7 +80,6 @@ class Renderer:
             # self.obj.transform.rotation.move(dz=1)
             # self.obj.transform.position.bounce(dy=0.01)
             # self.obj.transform.scale.bounce(dx=0.001)
-            self._gravity()
             
             #update model matrices and draw meshes
             self.__update_model()
@@ -122,26 +129,21 @@ class Renderer:
             left, middle, right = event.buttons
 
             # Get the mouse position from the event object
-            mouse_x, mouse_y = event.rel 
+            mouse_x, mouse_y = event.rel
             self.mesh_focus.transform.rotation.move(dy=-mouse_x, dx=-mouse_y)
             modKeys = pg.key.get_mods()
             shiftKey = pg.KMOD_LSHIFT & modKeys
-
             if shiftKey:
+                mouse_x_abs, mouse_y_abs = event.pos
                 z = self.mesh_focus.transform.position.z
-                x = self.mesh_focus.transform.position.x
-                x, y = 2 * (mouse_x/self.scr_width)-1, 1 - 2 * (mouse_y/self.scr_height)
-                w = self.render_distance
-                clip = np.linalg.inv(self.projection) @ np.array([x,y,z,w], dtype=np.float32)
+                x_pos = self.mesh_focus.transform.position.x
+                x, y = 2 * (mouse_x_abs/self.scr_width)-1, 1 - 2 * (mouse_y_abs/self.scr_height)
+                clip = np.linalg.inv(self.projection) @ np.array([x,y,-1, 1], dtype=np.float32)
                 world = np.linalg.inv(self.view) @ clip
-                if world[3] != 0:
-                    world = world / world[3]
-
-                print(world)
-
+                # if world[3] != 0:
+                #     world = world / world[3]
                 
-                self.mesh_focus.transform.position.update(x=x, y=world[1], z =z)
-            
+                self.mesh_focus.transform.position.update(x=world[0], y=world[1], z=z)
 
         if event.type == pg.KEYDOWN:
             if event.key == pg.K_ESCAPE and self.mesh_focus != None:
@@ -189,21 +191,13 @@ class Renderer:
         glUniformMatrix4fv(self.ProjectionMatrixLocation, 1, GL_FALSE, self.projection)
 
     def __update_model(self):
-        # create model matrix with T * R * S
-
+        """update model matrix for all meshes and draw them"""
         for mesh in self.mesh_manager.meshes:
-            model = self._create_model_matrix(mesh)
+            model = mesh.create_model_matrix()
             # update model matrix in gpu memory
             glUniformMatrix4fv(self.modelMatrixLocation, 1, GL_FALSE, model)
             mesh.draw()
 
-    def _create_model_matrix(self, mesh):
-        model = pyrr.matrix44.create_identity(dtype=np.float32)
-        model = pyrr.matrix44.multiply(m1=model, m2=pyrr.matrix44.create_from_scale(scale=mesh.transform.scale.vector(), dtype=np.float32))
-        model = pyrr.matrix44.multiply(m1=model, m2=pyrr.matrix44.create_from_eulers(eulers=mesh.transform.rotation.to_radians(), dtype=np.float32))
-        model = pyrr.matrix44.multiply(m1=model,  m2=pyrr.matrix44.create_from_translation(vec=mesh.transform.position.vector(), dtype=np.float32))
-        
-        return model
        
     def __mouse_picking(self, event):
         if not event.type == pg.MOUSEMOTION:
@@ -214,18 +208,7 @@ class Renderer:
 
         id, hit, dist = self.mesh_manager.hit_manager.get_hit()
         self.mesh_mouse_hover = self.mesh_manager.get_mesh(id)
-        # print('id:', id, 'hit:', hit, 'distance', dist)
-        # print('id', id)
-        # print(self.mesh_mouse_hover)
-
-    def _gravity(self, g=0.0981):
-        # simulate earth's gravity
-        for mesh in self.mesh_manager.meshes:
-            if mesh.transform.position.y > 0:
-                mesh.transform.position.move(dy=-0.0981)
-
-        
-
+       
     
     def quit(self):
         self.mesh_manager.destroy_meshes()

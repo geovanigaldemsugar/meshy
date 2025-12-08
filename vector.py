@@ -1,5 +1,5 @@
-import numpy as np
 import math
+import numpy as np
 
 class Vector:
     """ Base class for creating Transformation Obejects """
