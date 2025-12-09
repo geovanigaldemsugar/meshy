@@ -334,38 +334,6 @@ class Cube(Mesh):
         self.transform.position.update(0.0, 0.0, -3.0)
     
 
-
-class MeshWireFrame(Mesh):
-    def __init__(self, vertices, indices):
-        indices = self.__create_outline(indices)
-        mode = GL_LINES
-        line = 1
-        self.vertices = np.array(vertices, dtype=np.float32)
-        self.indices = np.array(indices, dtype=np.uint32)
-        self.change_color(1, 0.647, 0)
-        super().__init__(self.vertices, self.indices, mode, line)
-        
-    def __create_outline(self, indices):
-        outline = []
-        for i in range(0, len(indices), 3):
-            # get every three indices that create a quad for the object
-            triangle = indices[i:i+3]  # eg 0,1 2
-            # create a pair of perpendicular lines instead of the triangle
-            lines = triangle[0], triangle[1], triangle[1], triangle[2]
-            outline.extend(lines)
-            
-        return outline
-    
- 
-
-
-class Camera():
-    """Camera Object"""
-    def __init__(self):
-        self.transform = OrbitalTransfrom(r = 1, pitch=1, yaw=0)
-        self.transform.update(0, 0, -3)
-    
-
 class Sphere(Mesh):
     """Sphere Mesh using UV Sphere generation and EBO"""
 

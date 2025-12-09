@@ -4,6 +4,7 @@ import pyrr
 import pygame as pg
 from mesh import *
 from OpenGL.GL import *
+from camera import Camera
 from OpenGL.GL.shaders import compileProgram, compileShader
 
 
@@ -101,8 +102,8 @@ class Renderer:
             fragment_src = f.readlines()
 
         shader = compileProgram(
-                  compileShader(vertex_src, GL_VERTEX_SHADER),
-                  compileShader(fragment_src, GL_FRAGMENT_SHADER)
+        compileShader(vertex_src, GL_VERTEX_SHADER),
+        compileShader(fragment_src, GL_FRAGMENT_SHADER)
        )   
         
         return shader   
@@ -134,7 +135,7 @@ class Renderer:
             modKeys = pg.key.get_mods()
             shiftKey = pg.KMOD_LSHIFT & modKeys
             # self.camera.transform.move(0, mouse_y, mouse_x, sensitivity = 0.45)
-            self.__update_camera()
+            # self.__update_camera()
 
             if shiftKey:
                 mouse_x_abs, mouse_y_abs = event.pos
@@ -184,10 +185,10 @@ class Renderer:
                 
     def __update_camera(self):
         # create view matrix with updated camera target
-        self.view = pyrr.matrix44.create_look_at(eye= self.camera.transform.position.vector(), 
-        target=self.camera.transform.target.vector(), up=self.camera.transform.world_up.vector(), dtype=np.float32)
-        #update mat4 in gpu mem
-        glUniformMatrix4fv(self.viewMatrixLocation, 1, GL_FALSE, self.view)
+        view = self.camera.view_matrix()
+
+        #update view matrix in gpu mem
+        glUniformMatrix4fv(self.viewMatrixLocation, 1, GL_FALSE, view)
 
     def __update_projection(self):
         # create projection matrix and bind data to gpu memory
