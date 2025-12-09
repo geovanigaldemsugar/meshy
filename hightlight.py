@@ -14,10 +14,7 @@ class Mesh:
         self.indices = indices
         self.indices_count = len(self.indices)
         self.mode = mode
-        self.line = line
-
-        #set line thickness if drawing lines
-        glLineWidth(self.line)
+        self.enable = True
 
         # create Vertex Attribute Object (VAO)
         self.vao = glGenVertexArrays(1)
@@ -57,9 +54,10 @@ class Mesh:
 
     def draw(self):
         """ Draw Mesh using glDrawElements """
-        glBindVertexArray(self.vao)
-        # Draw primitive/triangles using indices specified in the EBO
-        glDrawElements(self.mode, self.indices_count, GL_UNSIGNED_INT, ctypes.c_void_p(0))
+        if self.enable:
+            glBindVertexArray(self.vao)
+            # Draw primitive/triangles using indices specified in the EBO
+            glDrawElements(self.mode, self.indices_count, GL_UNSIGNED_INT, ctypes.c_void_p(0))
 
 
     def destroy(self):
@@ -67,19 +65,68 @@ class Mesh:
         glDeleteBuffers(1, (self.vbo,))
         glDeleteBuffers(1, (self.ebo,))
     
+# draw points only with gl draw points and drawline for outline
+# experiment with glPolygonMode() to draw points and lines
 
+
+class Points(Mesh):
+    def __init__(self, vertices, indices):
+        mode = GL_POINTS
+        self.vertices = np.array(vertices, dtype=np.float32)
+        self.indices = np.unique(indices) #find only the vertices that are drawn to screen
+        self.indices = np.array(self.indices, dtype=np.uint32)
+        super().__init__(self.vertices, self.indices, mode)
+        self.change_color(1, 1, 1)
+        glPointSize(5)
+
+
+class WireFrame(Mesh):
+    def __init__(self, vertices, indices):
+        mode = GL_LINES
+        self.vertices = np.array(vertices, dtype=np.float32)
+        self.indices = self._outline(indices)
+        self.indices = np.array(self.indices, dtype=np.uint32)
+        super().__init__(self.vertices, self.indices, mode)
+        self.change_color(1, 0.647, 0)
+
+
+    def _outline(self, indices):
+        # render traingles only
+        outline = []
+        for i in range(0, len(indices), 3):
+            # get every three indices that create a triangle 
+            triangle = indices[i:i+3]
+            # draw traingle as lines
+            lines = [triangle[0], 
+                     triangle[1],
+                     triangle[1],
+                     triangle[2],
+                     triangle[2],
+                     triangle[0]]
+            outline.extend(lines)
+
+        return outline
+    
+class WireFrameAndPoints(WireFrame):
+    def __init__(self, vertices, indices):
+        super().__init__(vertices, indices)
+        self.points = Points(vertices, indices)
+
+    def draw(self):
+        super().draw()
+        self.points.draw()
 
 
 class Highlight(Mesh):
     def __init__(self, vertices, indices):
         indices = self.__create_outline(indices)
         mode = GL_LINES
-        line = 1
         self.vertices = np.array(vertices, dtype=np.float32)
         self.indices = np.array(indices, dtype=np.uint32)
-        super().__init__(self.vertices, self.indices, mode, line)
+        super().__init__(self.vertices, self.indices, mode)
         self.change_color(1, 0.647, 0)
         self.transform.scale.move(0.5, 0.5, 0.5)
+        
 
     def __create_outline(self, indices):
         outline = []

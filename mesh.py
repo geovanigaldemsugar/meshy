@@ -4,7 +4,7 @@ from ray import *
 from OpenGL.GL import *
 from OpenGL.constant import IntConstant
 from vector import Transform, OrbitalTransfrom
-from hightlight import Highlight
+from hightlight import Highlight, Points, WireFrame, WireFrameAndPoints
 
 class Mesh:
     """ Base class for Creating Object Meshes using Index Buffer Object(EBO) """
@@ -16,10 +16,11 @@ class Mesh:
         self.indices_count = len(self.indices)
         self.mode = mode
         self.line = line
-        self.vpos = None
+        self.enable = True
         self.highlight = Highlight(self.vertices, self.indices)
-        self.enable_highlight =False
-
+        self.wireframe = WireFrameAndPoints(self.vertices, self.indices)
+        self.highlight.enable = False
+        self.wireframe.enable = False
 
 
         # will be initialized by Mesh Manager
@@ -30,7 +31,7 @@ class Mesh:
 
         #set line thickness if drawing lines
         glLineWidth(self.line)
-
+        
         # create Vertex Attribute Object (VAO)
         self.vao = glGenVertexArrays(1)
         glBindVertexArray(self.vao)
@@ -101,14 +102,18 @@ class Mesh:
 
     def draw(self):
         """ Draw Mesh using glDrawElements """
-        glBindVertexArray(self.vao)
-        # Draw primitive/triangles using indices specified in the EBO
-        glDrawElements(self.mode, self.indices_count, GL_UNSIGNED_INT, ctypes.c_void_p(0))
-        
-        # Draw highlight if enabled
-        if self.enable_highlight:
+        if self.enable:
+            glBindVertexArray(self.vao)
+            glDrawElements(self.mode, self.indices_count, GL_UNSIGNED_INT, ctypes.c_void_p(0))
+            
+        # update transforms 
+        if self.highlight.enable:
             self.highlight.transform = self.transform
             self.highlight.draw()
+
+        if self.wireframe.enable:
+            self.wireframe.transform = self.transform
+            self.wireframe.draw()
 
     def destroy(self):
         glDeleteVertexArrays(1, (self.vao,))

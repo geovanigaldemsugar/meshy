@@ -47,7 +47,7 @@ class Renderer:
     def renderLoop(self):
         running = True
         # self.mesh_manager.add_mesh(Sphere())
-        self.mesh_manager.load_mesh("models/Revy_run_000000.obj")
+        self.mesh_manager.load_mesh("models/teapot.obj")
         mesh = self.mesh_manager.get_mesh(0) 
         mesh.transform.position.move(dx=0.0, dy=0.0, dz=-3)
         mesh.transform.rotation.move(dy=180, dx=90)
@@ -120,10 +120,10 @@ class Renderer:
             if event.button == 1:
                 if self.mesh_mouse_hover != None:
                     if self.mesh_focus != self.mesh_mouse_hover and self.mesh_focus != None:
-                        self.mesh_focus.enable_highlight = False
+                        self.mesh_focus.highlight.enable = False
                         
                     self.mesh_focus = self.mesh_mouse_hover
-                    self.mesh_focus.enable_highlight = True
+                    self.mesh_focus.highlight.enable = True
 
         if event.type == pg.MOUSEMOTION and self.mesh_focus != None:
             left, middle, right = event.buttons
@@ -133,6 +133,9 @@ class Renderer:
             self.mesh_focus.transform.rotation.move(dy=-mouse_x, dx=-mouse_y)
             modKeys = pg.key.get_mods()
             shiftKey = pg.KMOD_LSHIFT & modKeys
+            # self.camera.transform.move(0, mouse_y, mouse_x, sensitivity = 0.45)
+            self.__update_camera()
+
             if shiftKey:
                 mouse_x_abs, mouse_y_abs = event.pos
                 z = self.mesh_focus.transform.position.z
@@ -146,8 +149,13 @@ class Renderer:
                 self.mesh_focus.transform.position.update(x=world[0], y=world[1], z=z)
 
         if event.type == pg.KEYDOWN:
+            if event.key == pg.K_w:
+                for mesh in self.mesh_manager.meshes:
+                    mesh.wireframe.enable = not mesh.wireframe.enable
+                    mesh.enable = not mesh.enable
+        
             if event.key == pg.K_ESCAPE and self.mesh_focus != None:
-                self.mesh_focus.enable_highlight = False
+                self.mesh_focus.highlight.enable = False
                 self.mesh_focus = None
 
     def __camera_ctl(self, event):
