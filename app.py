@@ -97,7 +97,7 @@ class Renderer:
 
             self.pg_gui_manager.update(self.time_delta)
             self.win_surface.blit(self.gui_surface, (0, 0))
-  
+
             self.pg_gui_manager.draw_ui(self.win_surface)
             # self.gui_surface.fill((0, 0, 0, 0)) 
             # self.pg_gui_manager.draw_ui(self.gui_surface)
