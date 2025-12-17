@@ -2,10 +2,12 @@ import pygame as pg
 import numpy as np
 import pyrr
 import pygame as pg
+import pygame_gui as pg_gui
 from mesh import *
 from OpenGL.GL import *
 from camera import Camera
 from OpenGL.GL.shaders import compileProgram, compileShader
+from gui_test import UIInputStepper
 
 
 class Renderer:
@@ -17,14 +19,21 @@ class Renderer:
         self.mesh_mouse_hover = None
         self.mesh_focus = None
         self.ray = Ray(self, 0)
+        self.gui_surface = pg.Surface((width, height), pg.SRCALPHA)
+        
 
         #load objects
         # self._load_object("models/cube.obj")
 
         # initialize pygame and create window
         pg.init()
-        pg.display.set_mode((width, height), pg.OPENGL | pg.DOUBLEBUF | pg.RESIZABLE)
+        self.win_surface = pg.display.set_mode((width, height), pg.OPENGL | pg.DOUBLEBUF | pg.RESIZABLE)
         self.clock = pg.time.Clock()
+        self.pg_gui_manager = pg_gui.UIManager((self.scr_width, self.scr_height))
+        self.time_delta = 0
+        self.gui_surface = pg.Surface((width, height), pg.SRCALPHA)
+        UIInputStepper(relative_rect=pg.Rect(50, 50, 200, 40), manager=self.pg_gui_manager, value=0)
+
       
         # initialize OpenGL
         glEnable(GL_DEPTH_TEST)
@@ -70,6 +79,7 @@ class Renderer:
                 self.__adjust_ratio(event)
                 self.__mouse_picking(event)
                 self.__object_ctl(event)
+                self.pg_gui_manager.process_events(event)
             
             # refresh screen
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -85,12 +95,19 @@ class Renderer:
             #update model matrices and draw meshes
             self.__update_model()
 
+            self.pg_gui_manager.update(self.time_delta)
+            self.win_surface.blit(self.gui_surface, (0, 0))
+  
+            self.pg_gui_manager.draw_ui(self.win_surface)
+            # self.gui_surface.fill((0, 0, 0, 0)) 
+            # self.pg_gui_manager.draw_ui(self.gui_surface)
             # flip the buffers
             pg.display.flip()
         
             # frame rate limit
-            self.clock.tick(60)
-        
+            self.time_delta = self.clock.tick(60)/1000
+
+            
         #exit program
         self.quit() 
         
